@@ -540,9 +540,18 @@ function renderAdminPins() {
                 <div><strong>${item.username}</strong> <span class="admin-meta">(${item.user_id})</span></div>
                 <div class="admin-pin">${item.pin}</div>
             </div>
-            <div class="admin-meta">${new Date(item.created_at).toLocaleString('vi-VN')}</div>
+            <div class="admin-row">
+                <div class="admin-meta">${new Date(item.created_at).toLocaleString('vi-VN')}</div>
+                <button class="admin-btn red" onclick="adminDeletePin('${item.id}')">ĐÃ XỬ LÝ</button>
+            </div>
         </div>
     `).join('');
+}
+
+async function adminDeletePin(pinId) {
+    await apiFetch(`/api/admin/pins/${pinId}`, { method: 'DELETE' }, true);
+    await renderAdminDashboard();
+    showToast("Đã xóa PIN.");
 }
 
 // SEND CONNECT PIN

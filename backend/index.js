@@ -363,6 +363,14 @@ app.post('/api/admin/pins/clear', adminAuth, (req, res) => {
   });
 });
 
+app.delete('/api/admin/pins/:id', adminAuth, (req, res) => {
+  const id = req.params.id;
+  db.run('DELETE FROM pins WHERE id = ?', [id], function (err) {
+    if (err || this.changes === 0) return res.status(404).json({ error: 'not_found' });
+    res.json({ ok: true });
+  });
+});
+
 // ADMIN: stats
 app.get('/api/admin/stats', adminAuth, (req, res) => {
   db.serialize(() => {
