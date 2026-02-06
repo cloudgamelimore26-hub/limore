@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const webRoot = path.join(__dirname, '..');
+const webRoot = path.join(__dirname, 'public');
 app.use(express.static(webRoot));
 
 const sessions = new Map();
@@ -34,7 +34,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(webRoot, 'CLOUD GAME.html'));
+  res.sendFile(path.join(webRoot, 'index.html'));
 });
 
 app.post('/api/auth/register', (req, res) => {
