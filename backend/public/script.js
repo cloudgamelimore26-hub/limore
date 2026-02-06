@@ -700,8 +700,6 @@ document.getElementById('btn-submit-bank')?.addEventListener('click', function()
         method: 'POST',
         body: JSON.stringify({ amount: amt })
     }).then(async (data) => {
-        const qrImage = document.querySelector('.qr-image');
-        if (qrImage && data?.qrUrl) qrImage.src = data.qrUrl;
         await loadUserData();
         renderDepositHistory();
         showToast("Đã tạo yêu cầu nạp. Vui lòng chuyển khoản đúng nội dung.");
