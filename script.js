@@ -44,10 +44,53 @@ function closeDialog() {
 }
 
 // AUTH
-let currentUser = JSON.parse(localStorage.getItem('session_user')) || null;
-// OUT OF STOCK CONFIG (add package names here to block renting)
-const outOfStockPackages = new Set(JSON.parse(localStorage.getItem('out_of_stock') || '[]'));
-// removed status/realtime panels
+let currentUser = null;
+let userActivePackages = [];
+let userDeposits = [];
+let userRents = [];
+let authToken = localStorage.getItem('auth_token') || null;
+let adminToken = localStorage.getItem('admin_token') || null;
+
+async function apiFetch(path, options = {}, useAdmin = false) {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    const token = useAdmin ? adminToken : authToken;
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(path, { ...options, headers });
+    const contentType = res.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await res.json() : null;
+    if (!res.ok) {
+        const err = data?.error || 'request_failed';
+        throw new Error(err);
+    }
+    return data;
+}
+
+async function refreshMe() {
+    if (!authToken) {
+        currentUser = null;
+        return null;
+    }
+    const me = await apiFetch('/api/user/me');
+    currentUser = {
+        id: me.id,
+        name: me.username,
+        balance: me.balance
+    };
+    return currentUser;
+}
+
+async function loadUserData() {
+    if (!authToken) return;
+    await refreshMe();
+    const [deposits, rents, active] = await Promise.all([
+        apiFetch('/api/user/deposits'),
+        apiFetch('/api/user/rents'),
+        apiFetch('/api/user/active')
+    ]);
+    userDeposits = deposits || [];
+    userRents = rents || [];
+    userActivePackages = active || [];
+}
 
 function openAuth() { 
     renderLogin(); 
@@ -77,52 +120,69 @@ function renderRegister() {
         <p onclick="renderLogin()" style="cursor:pointer; color:#888; text-align:center; margin-top:15px;">Đã có tài khoản</p>`;
 }
 
-function handleLogin() {
+async function handleLogin() {
     const u = document.getElementById('l-user')?.value.trim();
     const p = document.getElementById('l-pass')?.value.trim();
     if (!u || !p) return showDialog("Lỗi", "Vui lòng điền đầy đủ.");
-
-    const users = JSON.parse(localStorage.getItem('db_users')) || {};
-    if (users[u] && users[u].password === p) {
-        currentUser = { name: u, ...users[u] };
-        localStorage.setItem('session_user', JSON.stringify(currentUser));
+    try {
+        const data = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ username: u, password: p })
+        });
+        authToken = data.token;
+        localStorage.setItem('auth_token', authToken);
+        await loadUserData();
         closeAuth();
         updateUI();
         showToast("Đăng nhập thành công!");
-    } else {
+    } catch (err) {
         showDialog("Lỗi", "Tài khoản hoặc mật khẩu sai.");
     }
 }
 
-function handleRegister() {
+async function handleRegister() {
     const u = document.getElementById('r-user')?.value.trim();
     const p = document.getElementById('r-pass')?.value.trim();
     if (!u || u.length < 3) return showDialog("Lỗi", "Tên tài khoản phải từ 3 ký tự.");
     if (!p) return showDialog("Lỗi", "Mật khẩu không được để trống.");
-
-    let users = JSON.parse(localStorage.getItem('db_users')) || {};
-    if (users[u]) return showDialog("Lỗi", "Tài khoản đã tồn tại.");
-
-    const newUser = { password: p, balance: 0, id: "ID-" + Math.floor(Math.random()*99999), activePackages: [], pendingRequests: [], depositHistory: [] };
-    users[u] = newUser;
-    localStorage.setItem('db_users', JSON.stringify(users));
-    currentUser = { name: u, ...newUser };
-    localStorage.setItem('session_user', JSON.stringify(currentUser));
-    closeAuth();
-    updateUI();
-    showToast("Đăng ký thành công!");
+    try {
+        const data = await apiFetch('/api/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ username: u, password: p })
+        });
+        authToken = data.token;
+        localStorage.setItem('auth_token', authToken);
+        await loadUserData();
+        closeAuth();
+        updateUI();
+        showToast("Đăng ký thành công!");
+    } catch (err) {
+        if (err.message === 'user_exists') return showDialog("Lỗi", "Tài khoản đã tồn tại.");
+        showDialog("Lỗi", "Đăng ký thất bại.");
+    }
 }
 
 function logout() {
-    localStorage.removeItem('session_user');
+    localStorage.removeItem('auth_token');
+    authToken = null;
+    currentUser = null;
+    userActivePackages = [];
+    userDeposits = [];
+    userRents = [];
     location.reload();
 }
 
 // UPDATE UI
-function updateUI() {
+async function updateUI() {
+    if (!currentUser && authToken) {
+        try {
+            await loadUserData();
+        } catch (err) {
+            logout();
+            return;
+        }
+    }
     if (!currentUser) return;
-
-    checkExpiredPackages();
 
     const mainLogin = document.getElementById('main-login-btn');
     const userInfo = document.getElementById('user-info-display');
@@ -134,7 +194,7 @@ function updateUI() {
 
     document.getElementById('name-val').innerText = currentUser.name;
     document.getElementById('id-val').innerText = currentUser.id;
-    document.getElementById('balance-val').innerText = currentUser.balance.toLocaleString('vi-VN') + "đ";
+    document.getElementById('balance-val').innerText = Number(currentUser.balance || 0).toLocaleString('vi-VN') + "đ";
     refreshNotiBadge();
 
     updateCKContent();
@@ -148,67 +208,84 @@ function updateCKContent() {
 }
 
 // REALTIME NOTIFICATIONS
-function ensureNotifications() {
-    if (!currentUser) return;
-    if (!currentUser.notifications) currentUser.notifications = [];
-}
-
-function addNotification(message, type = 'info') {
-    if (!currentUser) return;
-    ensureNotifications();
-    currentUser.notifications.unshift({
-        id: Date.now() + Math.random(),
-        message,
-        type,
-        time: new Date().toLocaleString('vi-VN'),
-        read: false
-    });
-    saveData();
-    renderRealtime();
-    refreshNotiBadge();
+function addNotification(message) {
+    showToast(message);
 }
 
 function refreshNotiBadge() {
     const badge = document.getElementById('noti-count');
     if (!badge) return;
-    const count = currentUser?.notifications?.filter(n => !n.read).length || 0;
-    badge.innerText = count;
+    const pending = (userRents || []).filter(r => r.status === 'pending').length;
+    badge.innerText = pending;
 }
 
 function markAllNotificationsRead() {
-    if (!currentUser?.notifications) return;
-    currentUser.notifications = currentUser.notifications.map(n => ({ ...n, read: true }));
-    saveData();
-    refreshNotiBadge();
+    const badge = document.getElementById('noti-count');
+    if (badge) badge.innerText = '0';
 }
 
 function renderRealtime() {
-    // no UI now, keep data logic for badge/notifications
     return;
 }
 
 // ADMIN DASHBOARD
+let adminCache = { users: [], rents: [], deposits: [], stats: null, stock: [], pins: [] };
+
 function isAdminMode() {
     return localStorage.getItem('admin_mode') === '1';
 }
 
-function getUsersMap() {
-    return JSON.parse(localStorage.getItem('db_users') || '{}');
+async function ensureAdminAuth() {
+    if (adminToken) return true;
+    const pass = prompt('Nhập mật khẩu admin:');
+    if (!pass) return false;
+    try {
+        const data = await apiFetch('/api/admin/login', {
+            method: 'POST',
+            body: JSON.stringify({ password: pass })
+        }, true);
+        adminToken = data.token;
+        localStorage.setItem('admin_token', adminToken);
+        return true;
+    } catch (err) {
+        showToast("Mật khẩu admin không đúng.");
+        return false;
+    }
 }
 
-function saveUsersMap(users) {
-    localStorage.setItem('db_users', JSON.stringify(users));
+async function loadAdminData() {
+    const ok = await ensureAdminAuth();
+    if (!ok) return false;
+    try {
+        const [users, rents, deposits, stock, stats, pins] = await Promise.all([
+            apiFetch('/api/admin/users', {}, true),
+            apiFetch('/api/admin/rents', {}, true),
+            apiFetch('/api/admin/deposits', {}, true),
+            apiFetch('/api/admin/out_of_stock', {}, true),
+            apiFetch('/api/admin/stats', {}, true),
+            apiFetch('/api/admin/pins', {}, true)
+        ]);
+        adminCache = {
+            users: users || [],
+            rents: rents || [],
+            deposits: deposits || [],
+            stock: stock?.packages || [],
+            stats: stats || null,
+            pins: pins || []
+        };
+        return true;
+    } catch (err) {
+        if (err.message === 'unauthorized') {
+            adminToken = null;
+            localStorage.removeItem('admin_token');
+            return await loadAdminData();
+        }
+        showToast("Không tải được dữ liệu admin.");
+        return false;
+    }
 }
 
-function getOutOfStockList() {
-    return JSON.parse(localStorage.getItem('out_of_stock') || '[]');
-}
-
-function saveOutOfStockList(list) {
-    localStorage.setItem('out_of_stock', JSON.stringify(list));
-}
-
-function renderAdminDashboard() {
+async function renderAdminDashboard() {
     const panel = document.getElementById('admin-panel');
     if (!panel) return;
     if (!isAdminMode()) {
@@ -216,6 +293,8 @@ function renderAdminDashboard() {
         return;
     }
     panel.style.display = 'block';
+    const ok = await loadAdminData();
+    if (!ok) return;
     renderAdminUsers();
     renderAdminRents();
     renderAdminDeposits();
@@ -227,8 +306,7 @@ function renderAdminDashboard() {
 function renderAdminUsers() {
     const el = document.getElementById('admin-users');
     if (!el) return;
-    const users = getUsersMap();
-    const items = Object.keys(users).map(name => ({ name, ...users[name] }));
+    const items = adminCache.users || [];
     if (items.length === 0) {
         el.innerHTML = '<div class="admin-meta">Chưa có người dùng.</div>';
         return;
@@ -236,13 +314,13 @@ function renderAdminUsers() {
     el.innerHTML = `<div class="admin-grid">` + items.map(u => `
         <div class="admin-card">
             <div class="admin-row">
-                <div><strong>${u.name}</strong> <span class="admin-meta">(${u.id || 'N/A'})</span></div>
+                <div><strong>${u.username}</strong> <span class="admin-meta">(${u.id})</span></div>
                 <div class="admin-meta">Số dư: ${Number(u.balance || 0).toLocaleString('vi-VN')}đ</div>
             </div>
             <div class="admin-row">
-                <button class="admin-btn blue" onclick="adminAdjustBalance('${u.name}', 50000)">+50k</button>
-                <button class="admin-btn blue" onclick="adminAdjustBalance('${u.name}', -50000)">-50k</button>
-                <button class="admin-btn red" onclick="adminResetUser('${u.name}')">XÓA USER</button>
+                <button class="admin-btn blue" onclick="adminAdjustBalance('${u.id}', 50000)">+50k</button>
+                <button class="admin-btn blue" onclick="adminAdjustBalance('${u.id}', -50000)">-50k</button>
+                <button class="admin-btn red" onclick="adminResetUser('${u.id}')">XÓA USER</button>
             </div>
         </div>
     `).join('') + `</div>`;
@@ -251,13 +329,7 @@ function renderAdminUsers() {
 function renderAdminRents() {
     const el = document.getElementById('admin-rents');
     if (!el) return;
-    const users = getUsersMap();
-    const reqs = [];
-    Object.keys(users).forEach(name => {
-        (users[name].pendingRequests || []).forEach((r, idx) => {
-            reqs.push({ user: name, idx, ...r });
-        });
-    });
+    const reqs = (adminCache.rents || []).filter(r => r.status === 'pending');
     if (reqs.length === 0) {
         el.innerHTML = '<div class="admin-meta">Không có yêu cầu thuê.</div>';
         return;
@@ -265,14 +337,14 @@ function renderAdminRents() {
     el.innerHTML = `<div class="admin-grid">` + reqs.map(r => `
         <div class="admin-card">
             <div class="admin-row">
-                <div><strong>${r.packageName}</strong> <span class="admin-meta">(${r.user})</span></div>
-                <div class="admin-meta">${r.date}</div>
+                <div><strong>${r.package_name}</strong> <span class="admin-meta">(${r.username})</span></div>
+                <div class="admin-meta">${new Date(r.created_at).toLocaleString('vi-VN')}</div>
             </div>
             <div class="admin-row">
-                <div class="admin-meta">${r.price.toLocaleString('vi-VN')}đ</div>
+                <div class="admin-meta">${Number(r.price).toLocaleString('vi-VN')}đ</div>
                 <div>
-                    <button class="admin-btn green" onclick="adminApproveRent('${r.user}', ${r.idx})">DUYỆT</button>
-                    <button class="admin-btn red" onclick="adminRejectRent('${r.user}', ${r.idx})">TỪ CHỐI</button>
+                    <button class="admin-btn green" onclick="adminApproveRent('${r.id}', '${r.package_name}', ${r.price})">DUYỆT</button>
+                    <button class="admin-btn red" onclick="adminRejectRent('${r.id}')">TỪ CHỐI</button>
                 </div>
             </div>
         </div>
@@ -282,14 +354,7 @@ function renderAdminRents() {
 function renderAdminDeposits() {
     const el = document.getElementById('admin-deposits');
     if (!el) return;
-    const users = getUsersMap();
-    const deps = [];
-    Object.keys(users).forEach(name => {
-        (users[name].depositHistory || []).forEach((d, idx) => {
-            deps.push({ user: name, idx, ...d });
-        });
-    });
-    const pending = deps.filter(d => (d.status || '').includes('Chờ'));
+    const pending = (adminCache.deposits || []).filter(d => d.status === 'pending');
     if (pending.length === 0) {
         el.innerHTML = '<div class="admin-meta">Không có nạp tiền chờ duyệt.</div>';
         return;
@@ -297,14 +362,14 @@ function renderAdminDeposits() {
     el.innerHTML = `<div class="admin-grid">` + pending.map(d => `
         <div class="admin-card">
             <div class="admin-row">
-                <div><strong>${d.user}</strong> <span class="admin-meta">${d.type === 'bank' ? 'Ngân hàng' : 'Thẻ cào'}</span></div>
-                <div class="admin-meta">${d.date}</div>
+                <div><strong>${d.username}</strong> <span class="admin-meta">Ngân hàng</span></div>
+                <div class="admin-meta">${new Date(d.created_at).toLocaleString('vi-VN')}</div>
             </div>
             <div class="admin-row">
-                <div class="admin-meta">${d.amount.toLocaleString('vi-VN')}đ</div>
+                <div class="admin-meta">${Number(d.amount).toLocaleString('vi-VN')}đ</div>
                 <div>
-                    <button class="admin-btn green" onclick="adminApproveDeposit('${d.user}', ${d.idx})">DUYỆT</button>
-                    <button class="admin-btn red" onclick="adminRejectDeposit('${d.user}', ${d.idx})">TỪ CHỐI</button>
+                    <button class="admin-btn green" onclick="adminApproveDeposit('${d.id}')">DUYỆT</button>
+                    <button class="admin-btn red" onclick="adminRejectDeposit('${d.id}')">TỪ CHỐI</button>
                 </div>
             </div>
         </div>
@@ -314,7 +379,7 @@ function renderAdminDeposits() {
 function renderAdminStock() {
     const el = document.getElementById('admin-stock');
     if (!el) return;
-    const list = getOutOfStockList();
+    const list = adminCache.stock || [];
     const isOut = name => list.includes(name);
     const items = ['Gói Cơ Bản', 'Gói Tối Ưu'];
     el.innerHTML = `<div class="admin-stock">` + items.map(name => `
@@ -328,176 +393,121 @@ function renderAdminStock() {
 function renderAdminStats() {
     const el = document.getElementById('admin-stats');
     if (!el) return;
-    const users = getUsersMap();
-    const userList = Object.keys(users).map(k => users[k]);
-    const totalUsers = userList.length;
-    const totalBalance = userList.reduce((s, u) => s + (u.balance || 0), 0);
-    let totalDeposits = 0;
-    let totalRents = 0;
-    userList.forEach(u => {
-        (u.depositHistory || []).forEach(d => {
-            if ((d.status || '').includes('Đã duyệt')) totalDeposits += d.amount + (d.bonus || 0);
-        });
-        (u.pendingRequests || []).forEach(r => {
-            if ((r.status || '') === 'approved') totalRents += r.price;
-        });
-    });
+    const s = adminCache.stats || { users: 0, balance: 0, deposits: 0, rents: 0 };
     el.innerHTML = `
         <div class="admin-grid">
-            <div class="admin-card admin-stat"><div class="admin-meta">Tổng người dùng</div><strong>${totalUsers}</strong></div>
-            <div class="admin-card admin-stat"><div class="admin-meta">Tổng số dư</div><strong>${totalBalance.toLocaleString('vi-VN')}đ</strong></div>
-            <div class="admin-card admin-stat"><div class="admin-meta">Nạp đã duyệt</div><strong>${totalDeposits.toLocaleString('vi-VN')}đ</strong></div>
-            <div class="admin-card admin-stat"><div class="admin-meta">Doanh thu thuê</div><strong>${totalRents.toLocaleString('vi-VN')}đ</strong></div>
+            <div class="admin-card admin-stat"><div class="admin-meta">Tổng người dùng</div><strong>${s.users}</strong></div>
+            <div class="admin-card admin-stat"><div class="admin-meta">Tổng số dư</div><strong>${Number(s.balance).toLocaleString('vi-VN')}đ</strong></div>
+            <div class="admin-card admin-stat"><div class="admin-meta">Nạp đã duyệt</div><strong>${Number(s.deposits).toLocaleString('vi-VN')}đ</strong></div>
+            <div class="admin-card admin-stat"><div class="admin-meta">Doanh thu thuê</div><strong>${Number(s.rents).toLocaleString('vi-VN')}đ</strong></div>
         </div>
     `;
 }
 
-function adminApproveRent(username, idx) {
-    const users = getUsersMap();
-    const user = users[username];
-    if (!user || !user.pendingRequests || !user.pendingRequests[idx]) return;
-    const req = user.pendingRequests[idx];
-    const isMonthly = /tháng/i.test(req.packageName) || req.price >= 100000;
-    const durationMs = isMonthly ? 30 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
-    user.activePackages = user.activePackages || [];
-    user.activePackages.push({
-        name: req.packageName,
-        price: req.price,
-        date: new Date().toLocaleString('vi-VN'),
-        expiresAt: Date.now() + durationMs,
-        paired: false,
-        connectPin: "Chưa có"
-    });
-    req.status = 'approved';
-    user.pendingRequests.splice(idx, 1);
-    users[username] = user;
-    saveUsersMap(users);
-    renderAdminDashboard();
+async function adminApproveRent(rentId, packageName, price) {
+    const isMonthly = /tháng/i.test(packageName) || Number(price) >= 100000;
+    const durationHours = isMonthly ? 720 : 1;
+    await apiFetch('/api/admin/rent/approve', {
+        method: 'POST',
+        body: JSON.stringify({ rentId, durationHours })
+    }, true);
+    await renderAdminDashboard();
     showToast("Đã duyệt thuê gói.");
 }
 
-function adminRejectRent(username, idx) {
-    const users = getUsersMap();
-    const user = users[username];
-    if (!user || !user.pendingRequests || !user.pendingRequests[idx]) return;
-    user.pendingRequests.splice(idx, 1);
-    users[username] = user;
-    saveUsersMap(users);
-    renderAdminDashboard();
+async function adminRejectRent(rentId) {
+    await apiFetch('/api/admin/rent/reject', {
+        method: 'POST',
+        body: JSON.stringify({ rentId })
+    }, true);
+    await renderAdminDashboard();
     showToast("Đã từ chối yêu cầu.");
 }
 
-function adminApproveDeposit(username, idx) {
-    const users = getUsersMap();
-    const user = users[username];
-    if (!user || !user.depositHistory || !user.depositHistory[idx]) return;
-    const d = user.depositHistory[idx];
-    if ((d.status || '').includes('Đã duyệt')) return;
-    d.status = 'Đã duyệt';
-    const amount = d.amount + (d.bonus || 0);
-    user.balance = (user.balance || 0) + amount;
-    users[username] = user;
-    saveUsersMap(users);
-    renderAdminDashboard();
+async function adminApproveDeposit(depositId) {
+    await apiFetch('/api/admin/deposit/approve', {
+        method: 'POST',
+        body: JSON.stringify({ depositId })
+    }, true);
+    await renderAdminDashboard();
     showToast("Đã duyệt nạp tiền.");
 }
 
-function adminRejectDeposit(username, idx) {
-    const users = getUsersMap();
-    const user = users[username];
-    if (!user || !user.depositHistory || !user.depositHistory[idx]) return;
-    user.depositHistory[idx].status = 'Từ chối';
-    users[username] = user;
-    saveUsersMap(users);
-    renderAdminDashboard();
+async function adminRejectDeposit(depositId) {
+    await apiFetch('/api/admin/deposit/reject', {
+        method: 'POST',
+        body: JSON.stringify({ depositId })
+    }, true);
+    await renderAdminDashboard();
     showToast("Đã từ chối nạp.");
 }
 
-function adminAdjustBalance(username, delta) {
-    const users = getUsersMap();
-    const user = users[username];
-    if (!user) return;
-    user.balance = (user.balance || 0) + delta;
-    users[username] = user;
-    saveUsersMap(users);
-    if (currentUser?.name === username) {
-        currentUser.balance = user.balance;
-        saveData();
-        updateUI();
-    }
-    renderAdminDashboard();
+async function adminAdjustBalance(userId, delta) {
+    await apiFetch('/api/admin/user/balance', {
+        method: 'POST',
+        body: JSON.stringify({ userId, delta })
+    }, true);
+    await renderAdminDashboard();
 }
 
-function adminResetUser(username) {
-    const users = getUsersMap();
-    if (!users[username]) return;
-    delete users[username];
-    saveUsersMap(users);
-    if (currentUser?.name === username) {
-        localStorage.removeItem('session_user');
-        currentUser = null;
-        location.reload();
-        return;
-    }
-    renderAdminDashboard();
+async function adminResetUser(userId) {
+    await apiFetch(`/api/admin/user/${userId}`, { method: 'DELETE' }, true);
+    await renderAdminDashboard();
     showToast("Đã xóa user.");
 }
 
-function adminToggleStock(name, checked) {
-    const list = getOutOfStockList();
-    const set = new Set(list);
+async function adminToggleStock(name, checked) {
+    const set = new Set(adminCache.stock || []);
     if (checked) set.add(name);
     else set.delete(name);
     const next = Array.from(set);
-    saveOutOfStockList(next);
-    outOfStockPackages.clear();
-    next.forEach(n => outOfStockPackages.add(n));
-    renderAdminDashboard();
+    await apiFetch('/api/admin/out_of_stock', {
+        method: 'POST',
+        body: JSON.stringify({ packages: next })
+    }, true);
+    await renderAdminDashboard();
     showToast("Đã cập nhật trạng thái hết máy.");
 }
 
 // CHECK BUY & QUEUE
-function checkBuy(price, name) {
+async function checkBuy(price, name) {
     if (!currentUser) return openAuth();
 
-    // Out of stock handling
-    if (outOfStockPackages.has(name)) {
-        showDialog("Hết máy", "Hiện tại gói này đã hết máy. Vui lòng quay lại sau hoặc chọn gói khác.");
-        return;
-    }
-
-    if (currentUser.balance < price) {
-        showDialog("Số dư không đủ", `Bạn cần thêm ${ (price - currentUser.balance).toLocaleString('vi-VN') }đ.`);
-        return;
-    }
-
-    showDialog("Xác nhận", `Thuê gói ${name} với giá ${price.toLocaleString('vi-VN')}đ?`, 'confirm', () => {
-        currentUser.balance -= price;
-
-        if (!currentUser.pendingRequests) currentUser.pendingRequests = [];
-        currentUser.pendingRequests.push({
-            packageName: name,
-            price,
-            date: new Date().toLocaleString('vi-VN'),
-            status: 'pending'
-        });
-
-        saveData();
-        updateUI();
-        showToast(`Yêu cầu thuê ${name} đã gửi! Đang chờ admin duyệt...`);
-        addNotification(`Đã gửi yêu cầu thuê ${name}.`, 'info');
-        openQueueModal(name, price);
+    showDialog("Xác nhận", `Thuê gói ${name} với giá ${price.toLocaleString('vi-VN')}đ?`, 'confirm', async () => {
+        try {
+            const isMonthly = /tháng/i.test(name) || Number(price) >= 100000;
+            const durationHours = isMonthly ? 720 : 1;
+            const data = await apiFetch('/api/rent', {
+                method: 'POST',
+                body: JSON.stringify({ packageName: name, price, durationHours })
+            });
+            currentUser.balance = data?.balance ?? currentUser.balance;
+            await loadUserData();
+            updateUI();
+            showToast(`Yêu cầu thuê ${name} đã gửi! Đang chờ admin duyệt...`);
+            openQueueModal(name, price);
+        } catch (err) {
+            if (err.message === 'out_of_stock') {
+                showDialog("Hết máy", "Hiện tại gói này đã hết máy. Vui lòng quay lại sau hoặc chọn gói khác.");
+                return;
+            }
+            if (err.message === 'insufficient_balance') {
+                showDialog("Số dư không đủ", "Vui lòng nạp thêm tiền.");
+                return;
+            }
+            showDialog("Lỗi", "Không thể gửi yêu cầu thuê lúc này.");
+        }
     });
 }
 
-function openQueueModal(packageName, price) {
+function openQueueModal(packageName) {
     const modal = document.getElementById('queueModal');
     if (!modal) return;
     modal.style.display = 'flex';
 
     const fill = document.getElementById('progress-fill');
-    const waitTime = Math.floor(Math.random() * 10000) + 5000;
-    document.getElementById('wait-time').innerText = `${Math.round(waitTime / 60000)}-${Math.round(waitTime / 60000 + 5)} phút`;
+    const waitTime = 4000;
+    document.getElementById('wait-time').innerText = `Đang gửi yêu cầu...`;
 
     let progress = 0;
     const interval = setInterval(() => {
@@ -507,38 +517,6 @@ function openQueueModal(packageName, price) {
             clearInterval(interval);
             if (modal) modal.style.display = 'none';
             document.getElementById('user-for-support').innerText = currentUser ? currentUser.name : 'tài khoản của bạn';
-            if (currentUser) {
-                currentUser.activePackages = currentUser.activePackages || [];
-                const isMonthly = /tháng/i.test(packageName) || price >= 100000;
-                const durationMs = isMonthly ? 30 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
-                currentUser.activePackages.push({
-                    name: packageName,
-                    price,
-                    date: new Date().toLocaleString('vi-VN'),
-                    expiresAt: Date.now() + durationMs,
-                    paired: false,
-                    connectPin: "Chưa có"
-                });
-
-                if (currentUser.pendingRequests && currentUser.pendingRequests.length) {
-                    currentUser.pendingRequests[currentUser.pendingRequests.length - 1].status = 'approved';
-                }
-
-                saveData();
-                updateUI();
-                addNotification(`Gói ${packageName} đã được duyệt và kích hoạt.`, 'success');
-            }
-            const successModal = document.getElementById('successModal');
-            if (successModal) successModal.style.display = 'flex';
-            const note = document.getElementById('connect-note');
-            if (note) {
-                note.textContent = currentUser?.lastConnectPin
-                    ? `Mã gần nhất: ${currentUser.lastConnectPin}`
-                    : "Chưa nhập mã.";
-            }
-            const input = document.getElementById('connect-pin-input');
-            if (input) input.value = '';
-            showToast("Admin đã duyệt! Gửi PIN pairing cho admin nhé.");
         }
     }, 100);
 }
@@ -548,26 +526,10 @@ function closeSuccessModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// ADMIN PIN STORAGE
-function getAdminPins() {
-    return JSON.parse(localStorage.getItem('admin_pins') || '[]');
-}
-
-function saveAdminPins(list) {
-    localStorage.setItem('admin_pins', JSON.stringify(list));
-}
-
-function addAdminPin(payload) {
-    const list = getAdminPins();
-    list.unshift(payload);
-    saveAdminPins(list);
-    renderAdminPins();
-}
-
 function renderAdminPins() {
     const listEl = document.getElementById('admin-pins');
     if (!listEl) return;
-    const list = getAdminPins();
+    const list = adminCache.pins || [];
     if (list.length === 0) {
         listEl.innerHTML = '<div class="admin-meta">Chưa có PIN nào.</div>';
         return;
@@ -575,10 +537,10 @@ function renderAdminPins() {
     listEl.innerHTML = list.map(item => `
         <div class="admin-card">
             <div class="admin-row">
-                <div><strong>${item.username}</strong> <span class="admin-meta">(${item.userId})</span></div>
+                <div><strong>${item.username}</strong> <span class="admin-meta">(${item.user_id})</span></div>
                 <div class="admin-pin">${item.pin}</div>
             </div>
-            <div class="admin-meta">${item.time}</div>
+            <div class="admin-meta">${new Date(item.created_at).toLocaleString('vi-VN')}</div>
         </div>
     `).join('');
 }
@@ -597,18 +559,17 @@ document.addEventListener('click', e => {
         if (!/^[0-9]{4,6}$/.test(raw)) {
             return showToast("Connect PIN chỉ gồm 4-6 chữ số.");
         }
-
-        currentUser.lastConnectPin = raw;
-        saveData();
-        addAdminPin({
-            username: currentUser.name,
-            userId: currentUser.id,
-            pin: raw,
-            time: new Date().toLocaleString('vi-VN')
+        apiFetch('/api/user/pin', {
+            method: 'POST',
+            body: JSON.stringify({ pin: raw })
+        }).then(() => {
+            if (note) note.textContent = `Đã gửi mã: ${raw}`;
+            showToast("Đã gửi Connect PIN cho admin.");
+            if (input) input.value = '';
+            renderAdminDashboard();
+        }).catch(() => {
+            showToast("Gửi Connect PIN thất bại.");
         });
-        if (note) note.textContent = `Đã lưu mã: ${raw} (hãy gửi cho admin).`;
-        showToast("Đã lưu Connect PIN. Hãy gửi cho admin.");
-        if (input) input.value = '';
     }
 });
 
@@ -627,7 +588,7 @@ function openDepositModal() {
     if (bankBtn) bankBtn.classList.add('active');
     if (bankTab) bankTab.classList.add('active');
 
-    renderDepositHistory();
+    loadUserData().then(renderDepositHistory).catch(() => renderDepositHistory());
 }
 
 function closeDepositModal() {
@@ -648,92 +609,39 @@ function closeAdminPairModal() {
 
 document.addEventListener('click', e => {
     if (e.target.id === 'btn-admin-pair') {
-        const btn = e.target;
-        const username = document.getElementById('pair-username')?.value.trim();
-        const pairingPin = document.getElementById('pair-pin')?.value.trim();
-        const connectPin = document.getElementById('pair-connect-pin')?.value.trim();
-
-        if (!username || pairingPin.length !== 4 || isNaN(pairingPin)) {
-            showToast("Nhập tên khách và PIN 4 số hợp lệ!");
-            return;
-        }
-
-        btn.querySelector('span').style.display = 'none';
-        const spinner = btn.querySelector('.fa-spinner');
-        if (spinner) spinner.style.display = 'inline-block';
-        btn.disabled = true;
-
-        setTimeout(() => {
-            let users = JSON.parse(localStorage.getItem('db_users')) || {};
-            if (!users[username]) {
-                showToast("Không tìm thấy khách!");
-                resetBtn();
-                return;
-            }
-
-            let user = users[username];
-            if (!user.activePackages || user.activePackages.length === 0) {
-                showToast("Khách chưa có gói active!");
-                resetBtn();
-                return;
-            }
-
-            let pkg = user.activePackages[user.activePackages.length - 1];
-            pkg.paired = true;
-            pkg.pairingPinUsed = pairingPin;
-            pkg.connectPin = connectPin || "Không cần";
-            pkg.pairDate = new Date().toLocaleString('vi-VN');
-
-            users[username] = user;
-            localStorage.setItem('db_users', JSON.stringify(users));
-
-            if (currentUser && currentUser.name === username) {
-                currentUser = { ...user };
-                saveData();
-                updateUI();
-            }
-
-            showToast(`Pair thành công cho ${username}!`);
-            showDialog("THÀNH CÔNG", `Đã pair máy cho ${username}. Connect PIN: ${pkg.connectPin}`);
-            closeAdminPairModal();
-            resetBtn();
-        }, 1200);
-
-        function resetBtn() {
-            btn.querySelector('span').style.display = 'inline';
-            const spinner = btn.querySelector('.fa-spinner');
-            if (spinner) spinner.style.display = 'none';
-            btn.disabled = false;
-        }
+        showToast("Chức năng pair sẽ cập nhật ở bản sau.");
     }
 });
 
 // NOTI
-function openNoti() {
-    checkExpiredPackages();
+async function openNoti() {
+    try {
+        await loadUserData();
+    } catch {}
     markAllNotificationsRead();
 
-    let content = currentUser?.activePackages?.length 
-        ? `<div class="pkg-list">` + currentUser.activePackages.map((p, idx) => {
-            const diff = p.expiresAt - Date.now();
+    let content = userActivePackages?.length 
+        ? `<div class="pkg-list">` + userActivePackages.map((p, idx) => {
+            const expiresAt = p.expires_at ? new Date(p.expires_at).getTime() : 0;
+            const diff = expiresAt ? (expiresAt - Date.now()) : 0;
             let remaining = '';
-            if (diff <= 0) {
+            if (!expiresAt) {
+                remaining = 'Đang hoạt động';
+            } else if (diff <= 0) {
                 remaining = '<span class="pkg-expired">Đã hết hạn</span>';
             } else if (diff < 3600000) {
                 remaining = `Còn ${Math.max(1, Math.ceil(diff / 60000))} phút`;
             } else {
                 remaining = `Còn ${Math.floor(diff / 3600000)} giờ`;
             }
-            const pairStatus = p.paired
-                ? `<span class="pkg-paired">ĐÃ PAIR • Connect PIN: ${p.connectPin}</span>`
-                : `<span class="pkg-warn">CHƯA PAIR • GỬI PIN CHO ADMIN</span>`;
+            const pairStatus = `<span class="pkg-warn">CHƯA PAIR • GỬI PIN CHO ADMIN</span>`;
 
             return `
                 <div class="pkg-card">
                     <div class="pkg-header">
                         <div>
-                            <div class="pkg-title">${p.name}</div>
-                            <div class="pkg-meta">Thuê: ${p.date}</div>
+                            <div class="pkg-title">${p.package_name}</div>
+                            <div class="pkg-meta">Thuê: ${new Date(p.created_at).toLocaleString('vi-VN')}</div>
                         </div>
                         <div class="pkg-remaining">${remaining}</div>
                     </div>
@@ -752,48 +660,18 @@ function openNoti() {
 }
 
 // SAVE DATA
-function saveData() {
-    if (!currentUser) return;
-    const users = JSON.parse(localStorage.getItem('db_users')) || {};
-    users[currentUser.name] = { ...currentUser, name: undefined };
-    localStorage.setItem('db_users', JSON.stringify(users));
-    localStorage.setItem('session_user', JSON.stringify(currentUser));
-}
+function saveData() {}
 
 // CHECK EXPIRED
 function checkExpiredPackages() {
-    if (!currentUser?.activePackages) return;
-
-    const now = Date.now();
-    let hasExpired = false;
-
-    currentUser.activePackages = currentUser.activePackages.filter(pkg => {
-        if (pkg.expiresAt && now >= pkg.expiresAt) {
-            hasExpired = true;
-            showToast(`Gói ${pkg.name} đã hết hạn và bị xóa!`);
-            addNotification(`Gói ${pkg.name} đã hết hạn.`, 'warn');
-            return false;
-        }
-        return true;
-    });
-
-    if (hasExpired) {
-        saveData();
-        updateUI();
-    }
+    return;
 }
 
 // REMOVE PACKAGE (manual)
 function removePackage(index) {
-    if (!currentUser?.activePackages || index < 0 || index >= currentUser.activePackages.length) return;
-    const pkg = currentUser.activePackages[index];
-    showDialog("Xác nhận", `Bạn muốn xóa gói ${pkg.name}?`, 'confirm', () => {
-        currentUser.activePackages.splice(index, 1);
-        saveData();
-        updateUI();
-        showToast(`Đã xóa gói ${pkg.name}.`);
-        openNoti();
-    });
+    if (!userActivePackages || index < 0 || index >= userActivePackages.length) return;
+    const pkg = userActivePackages[index];
+    showDialog("Thông báo", `Vui lòng liên hệ admin để xóa gói ${pkg.package_name}.`);
 }
 
 // HƯỚNG DẪN STEAM
@@ -810,62 +688,33 @@ function openSteamGuide() {
 // NẠP TIỀN (demo)
 document.getElementById('btn-submit-bank')?.addEventListener('click', function() {
     const btn = this;
-    const amt = 100000;
+    if (!currentUser) return openAuth();
+    const raw = prompt('Nhập số tiền muốn nạp (VND):', '100000');
+    const amt = parseInt((raw || '').replace(/[^\d]/g, ''), 10);
+    if (!amt || amt < 10000) return showToast("Số tiền tối thiểu 10.000đ.");
 
     btn.classList.add('loading');
     btn.disabled = true;
 
-    setTimeout(() => {
-        currentUser.depositHistory = currentUser.depositHistory || [];
-        currentUser.depositHistory.push({
-            type: 'bank',
-            amount: amt,
-            date: new Date().toLocaleString('vi-VN'),
-            status: 'Chờ duyệt'
-        });
-        saveData();
+    apiFetch('/api/deposit/create', {
+        method: 'POST',
+        body: JSON.stringify({ amount: amt })
+    }).then(async (data) => {
+        const qrImage = document.querySelector('.qr-image');
+        if (qrImage && data?.qrUrl) qrImage.src = data.qrUrl;
+        await loadUserData();
         renderDepositHistory();
-        showToast("Yêu cầu nạp đã gửi!");
-        addNotification("Yêu cầu nạp ngân hàng đã gửi.", 'info');
+        showToast("Đã tạo yêu cầu nạp. Vui lòng chuyển khoản đúng nội dung.");
+    }).catch(() => {
+        showToast("Không tạo được yêu cầu nạp.");
+    }).finally(() => {
         btn.classList.remove('loading');
         btn.disabled = false;
-    }, 1200);
+    });
 });
 
 document.getElementById('btn-submit-card')?.addEventListener('click', function() {
-    const btn = this;
-    const prov = document.getElementById('card-provider')?.value;
-    const code = document.getElementById('card-code')?.value.trim();
-    const serial = document.getElementById('card-serial')?.value.trim();
-    if (!prov || !code || !serial) return showToast("Điền đầy đủ thông tin");
-
-    btn.classList.add('loading');
-    btn.disabled = true;
-
-    setTimeout(() => {
-        const amount = 100000;
-        const bonus = 5000;
-        currentUser.depositHistory = currentUser.depositHistory || [];
-        currentUser.depositHistory.push({
-            type: 'card',
-            provider: prov,
-            amount,
-            bonus,
-            date: new Date().toLocaleString('vi-VN'),
-            status: 'Đã duyệt (demo)'
-        });
-        currentUser.balance += amount + bonus;
-        saveData();
-        updateUI();
-        renderDepositHistory();
-        showToast(`Nạp thành công +${(amount + bonus).toLocaleString('vi-VN')}đ (demo)!`);
-        addNotification(`Nạp thẻ thành công +${(amount + bonus).toLocaleString('vi-VN')}đ (demo).`, 'success');
-        document.getElementById('card-provider').value = '';
-        document.getElementById('card-code').value = '';
-        document.getElementById('card-serial').value = '';
-        btn.classList.remove('loading');
-        btn.disabled = false;
-    }, 1200);
+    showToast("Nạp thẻ cào đang bảo trì. Vui lòng nạp ngân hàng.");
 });
 
 function renderDepositHistory() {
@@ -875,20 +724,20 @@ function renderDepositHistory() {
         container.innerHTML = '<p style="padding:40px; text-align:center; color:#666;">Vui lòng đăng nhập để xem lịch sử nạp.</p>';
         return;
     }
-    if (!currentUser.depositHistory || currentUser.depositHistory.length === 0) {
+    if (!userDeposits || userDeposits.length === 0) {
         container.innerHTML = '<p style="padding:40px; text-align:center; color:#666;">Chưa có lịch sử nạp tiền.</p>';
         return;
     }
     let html = '';
-    currentUser.depositHistory.forEach(item => {
-        const color = item.status.includes('Chờ') ? '#ff9800' : '#4caf50';
+    userDeposits.forEach(item => {
+        const statusLabel = item.status === 'pending' ? 'Chờ duyệt' : item.status === 'approved' ? 'Đã duyệt' : 'Từ chối';
+        const color = item.status === 'pending' ? '#ff9800' : item.status === 'approved' ? '#4caf50' : '#f44336';
         html += `
             <div style="padding:20px 0; border-bottom:1px solid #222;">
-                <strong>${item.type === 'bank' ? 'Ngân hàng' : 'Thẻ cào ' + item.provider}</strong><br>
-                Số tiền: ${item.amount.toLocaleString('vi-VN')}đ
-                ${item.bonus ? ` + ${item.bonus.toLocaleString('vi-VN')}đ bonus` : ''}<br>
-                Ngày: ${item.date}<br>
-                Trạng thái: <span style="color:${color};">${item.status}</span>
+                <strong>Ngân hàng</strong><br>
+                Số tiền: ${Number(item.amount).toLocaleString('vi-VN')}đ<br>
+                Ngày: ${new Date(item.created_at).toLocaleString('vi-VN')}<br>
+                Trạng thái: <span style="color:${color};">${statusLabel}</span>
             </div>`;
     });
     container.innerHTML = html;
@@ -925,38 +774,27 @@ document.addEventListener('click', e => {
 
 // INIT
 window.onload = () => {
-    if (currentUser) updateUI();
-    renderDepositHistory(); // nếu mở deposit modal
-    renderAdminDashboard();
+    if (authToken) {
+        loadUserData().then(() => {
+            updateUI();
+            renderDepositHistory();
+        }).catch(() => {
+            logout();
+        });
+    }
 
     // Enable admin view via ?admin=1 or ?admin=0
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1') localStorage.setItem('admin_mode', '1');
     if (params.get('admin') === '0') localStorage.removeItem('admin_mode');
     renderAdminDashboard();
-
-    // Auto cleanup expired packages (runs even if user doesn't open notifications)
-    setInterval(() => {
-        if (currentUser) checkExpiredPackages();
-    }, 60000);
-
-    // Realtime sync from storage (multi-tab)
-    setInterval(() => {
-        const session = JSON.parse(localStorage.getItem('session_user'));
-        if (session && currentUser && session.name === currentUser.name) {
-            currentUser = session;
-            renderRealtime();
-            refreshNotiBadge();
-            renderAdminDashboard();
-        }
-    }, 5000);
-
 };
 
 document.getElementById('admin-clear-pins')?.addEventListener('click', () => {
-    saveAdminPins([]);
-    renderAdminDashboard();
-    showToast("Đã xóa danh sách PIN.");
+    apiFetch('/api/admin/pins/clear', { method: 'POST' }, true)
+        .then(() => renderAdminDashboard())
+        .then(() => showToast("Đã xóa danh sách PIN."))
+        .catch(() => showToast("Không thể xóa PIN."));
 });
 
 document.getElementById('admin-refresh')?.addEventListener('click', () => {
