@@ -92,6 +92,23 @@ async function loadUserData() {
     userActivePackages = active || [];
 }
 
+function maybeShowPinGuide() {
+    if (!currentUser || !Array.isArray(userActivePackages) || userActivePackages.length === 0) return;
+    const latest = userActivePackages[0];
+    if (!latest?.id) return;
+    const key = `pin_guide_seen_${latest.id}`;
+    if (localStorage.getItem(key)) return;
+    const successModal = document.getElementById('successModal');
+    if (successModal) successModal.style.display = 'flex';
+    const userLabel = document.getElementById('user-for-support');
+    if (userLabel) userLabel.innerText = currentUser.name;
+    const note = document.getElementById('connect-note');
+    if (note) note.textContent = "Chưa nhập mã.";
+    const input = document.getElementById('connect-pin-input');
+    if (input) input.value = '';
+    localStorage.setItem(key, '1');
+}
+
 function openAuth() { 
     renderLogin(); 
     document.getElementById('authModal').style.display = 'flex'; 
@@ -200,6 +217,7 @@ async function updateUI() {
     updateCKContent();
     renderRealtime();
     renderAdminDashboard();
+    maybeShowPinGuide();
 }
 
 function updateCKContent() {
@@ -627,6 +645,7 @@ async function openNoti() {
     try {
         await loadUserData();
     } catch {}
+    maybeShowPinGuide();
     markAllNotificationsRead();
 
     let content = userActivePackages?.length 
