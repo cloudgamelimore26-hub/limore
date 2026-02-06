@@ -98,6 +98,10 @@ function maybeShowPinGuide() {
     if (!latest?.id) return;
     const key = `pin_guide_seen_${latest.id}`;
     if (localStorage.getItem(key)) return;
+    showRightNotice(
+        "Thuê máy thành công",
+        "Mở cửa sổ GỬI PIN và làm theo hướng dẫn để admin pair máy."
+    );
     const successModal = document.getElementById('successModal');
     if (successModal) successModal.style.display = 'flex';
     const userLabel = document.getElementById('user-for-support');
@@ -107,6 +111,21 @@ function maybeShowPinGuide() {
     const input = document.getElementById('connect-pin-input');
     if (input) input.value = '';
     localStorage.setItem(key, '1');
+}
+
+function showRightNotice(title, desc) {
+    const existing = document.querySelector('.right-notice');
+    if (existing) existing.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'right-notice';
+    wrap.innerHTML = `
+        <div class="title">${title}</div>
+        <div class="desc">${desc}</div>
+        <div class="action">ĐÃ HIỂU</div>
+    `;
+    wrap.querySelector('.action')?.addEventListener('click', () => wrap.remove());
+    document.body.appendChild(wrap);
+    setTimeout(() => { if (wrap.parentNode) wrap.remove(); }, 7000);
 }
 
 function openAuth() { 
