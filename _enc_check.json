@@ -1,0 +1,5 @@
+﻿{
+    "utf8_sample":  "﻿\u003c!DOCTYPE html\u003e\r\n\u003chtml lang=\"vi\"\u003e\r\n\u003chead\u003e\r\n    \u003cmeta charset=\"UTF-8\"\u003e\r\n    \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\"\u003e\r\n    \u003ctitle\u003eLiMo",
+    "cp1252_sample":  "ï»¿\u003c!DOCTYPE html\u003e\r\n\u003chtml lang=\"vi\"\u003e\r\n\u003chead\u003e\r\n    \u003cmeta charset=\"UTF-8\"\u003e\r\n    \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\"\u003e\r\n    \u003ctitle\u003eLi",
+    "cp1258_sample":  "ï»¿\u003c!DOCTYPE html\u003e\r\n\u003chtml lang=\"vi\"\u003e\r\n\u003chead\u003e\r\n    \u003cmeta charset=\"UTF-8\"\u003e\r\n    \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\"\u003e\r\n    \u003ctitle\u003eLi"
+}
