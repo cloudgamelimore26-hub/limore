@@ -138,22 +138,48 @@ function renderLogin() {
     const content = document.getElementById('authContent');
     if (!content) return;
     content.innerHTML = `
-        <h2>ĐĂNG NHẬP</h2>
-        <input type="text" id="l-user" placeholder="Tài khoản">
-        <input type="password" id="l-pass" placeholder="Mật khẩu">
-        <button onclick="handleLogin()">ĐĂNG NHẬP</button>
-        <p onclick="renderRegister()" style="cursor:pointer; color:#888; text-align:center; margin-top:15px;">Tạo tài khoản mới</p>`;
+        <div class="auth-header">
+            <div class="auth-title">Đăng nhập Limore Cloud</div>
+            <div class="auth-sub">Truy cập tài khoản để thuê máy</div>
+        </div>
+        <div class="auth-form">
+            <label class="auth-field">
+                <span>Tài khoản</span>
+                <input type="text" id="l-user" placeholder="Nhập tài khoản">
+            </label>
+            <label class="auth-field">
+                <span>Mật khẩu</span>
+                <input type="password" id="l-pass" placeholder="Nhập mật khẩu">
+            </label>
+            <button class="auth-primary" onclick="handleLogin()">ĐĂNG NHẬP</button>
+            <div class="auth-switch">
+                Chưa có tài khoản? <button class="auth-link" onclick="renderRegister()">Tạo ngay</button>
+            </div>
+        </div>`;
 }
 
 function renderRegister() {
     const content = document.getElementById('authContent');
     if (!content) return;
     content.innerHTML = `
-        <h2>ĐĂNG KÝ</h2>
-        <input type="text" id="r-user" placeholder="Tài khoản">
-        <input type="password" id="r-pass" placeholder="Mật khẩu">
-        <button onclick="handleRegister()">ĐĂNG KÝ</button>
-        <p onclick="renderLogin()" style="cursor:pointer; color:#888; text-align:center; margin-top:15px;">Đã có tài khoản</p>`;
+        <div class="auth-header">
+            <div class="auth-title">Tạo tài khoản mới</div>
+            <div class="auth-sub">Chỉ mất 1 phút để bắt đầu</div>
+        </div>
+        <div class="auth-form">
+            <label class="auth-field">
+                <span>Tài khoản</span>
+                <input type="text" id="r-user" placeholder="Nhập tài khoản">
+            </label>
+            <label class="auth-field">
+                <span>Mật khẩu</span>
+                <input type="password" id="r-pass" placeholder="Tạo mật khẩu">
+            </label>
+            <button class="auth-primary" onclick="handleRegister()">ĐĂNG KÝ</button>
+            <div class="auth-switch">
+                Đã có tài khoản? <button class="auth-link" onclick="renderLogin()">Đăng nhập</button>
+            </div>
+        </div>`;
 }
 
 async function handleLogin() {
@@ -371,18 +397,21 @@ function renderAdminRents() {
         el.innerHTML = '<div class="admin-meta">Không có yêu cầu thuê.</div>';
         return;
     }
-    el.innerHTML = `<div class="admin-grid">` + reqs.map(r => `
-        <div class="admin-card">
-            <div class="admin-row">
-                <div><strong>${r.package_name}</strong> <span class="admin-meta">(${r.username})</span></div>
-                <div class="admin-meta">${new Date(r.created_at).toLocaleString('vi-VN')}</div>
-            </div>
-            <div class="admin-row">
-                <div class="admin-meta">${Number(r.price).toLocaleString('vi-VN')}đ</div>
+    el.innerHTML = `<div class="admin-list">` + reqs.map(r => `
+        <div class="admin-item">
+            <div class="admin-item-head">
                 <div>
-                    <button class="admin-btn green" onclick="adminApproveRent('${r.id}', '${r.package_name}', ${r.price})">DUYỆT</button>
-                    <button class="admin-btn red" onclick="adminRejectRent('${r.id}')">TỪ CHỐI</button>
+                    <div class="admin-title-row">
+                        <strong>${r.package_name}</strong>
+                        <span class="admin-chip">Chờ duyệt</span>
+                    </div>
+                    <div class="admin-meta-line">${r.username} • ${new Date(r.created_at).toLocaleString('vi-VN')}</div>
                 </div>
+                <div class="admin-price">${Number(r.price).toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div class="admin-actions">
+                <button class="admin-btn green" onclick="adminApproveRent('${r.id}', '${r.package_name}', ${r.price})">DUYỆT</button>
+                <button class="admin-btn red" onclick="adminRejectRent('${r.id}')">TỪ CHỐI</button>
             </div>
         </div>
     `).join('') + `</div>`;
@@ -396,18 +425,21 @@ function renderAdminDeposits() {
         el.innerHTML = '<div class="admin-meta">Không có nạp tiền chờ duyệt.</div>';
         return;
     }
-    el.innerHTML = `<div class="admin-grid">` + pending.map(d => `
-        <div class="admin-card">
-            <div class="admin-row">
-                <div><strong>${d.username}</strong> <span class="admin-meta">Ngân hàng</span></div>
-                <div class="admin-meta">${new Date(d.created_at).toLocaleString('vi-VN')}</div>
-            </div>
-            <div class="admin-row">
-                <div class="admin-meta">${Number(d.amount).toLocaleString('vi-VN')}đ</div>
+    el.innerHTML = `<div class="admin-list">` + pending.map(d => `
+        <div class="admin-item">
+            <div class="admin-item-head">
                 <div>
-                    <button class="admin-btn green" onclick="adminApproveDeposit('${d.id}')">DUYỆT</button>
-                    <button class="admin-btn red" onclick="adminRejectDeposit('${d.id}')">TỪ CHỐI</button>
+                    <div class="admin-title-row">
+                        <strong>${d.username}</strong>
+                        <span class="admin-chip">Nạp ngân hàng</span>
+                    </div>
+                    <div class="admin-meta-line">${new Date(d.created_at).toLocaleString('vi-VN')}</div>
                 </div>
+                <div class="admin-price">${Number(d.amount).toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div class="admin-actions">
+                <button class="admin-btn green" onclick="adminApproveDeposit('${d.id}')">DUYỆT</button>
+                <button class="admin-btn red" onclick="adminRejectDeposit('${d.id}')">TỪ CHỐI</button>
             </div>
         </div>
     `).join('') + `</div>`;
@@ -571,18 +603,23 @@ function renderAdminPins() {
         listEl.innerHTML = '<div class="admin-meta">Chưa có PIN nào.</div>';
         return;
     }
-    listEl.innerHTML = list.map(item => `
-        <div class="admin-card">
-            <div class="admin-row">
-                <div><strong>${item.username}</strong> <span class="admin-meta">(${item.user_id})</span></div>
+    listEl.innerHTML = `<div class="admin-list">` + list.map(item => `
+        <div class="admin-item">
+            <div class="admin-item-head">
+                <div>
+                    <div class="admin-title-row">
+                        <strong>${item.username}</strong>
+                        <span class="admin-chip">PIN</span>
+                    </div>
+                    <div class="admin-meta-line">${item.user_id} • ${new Date(item.created_at).toLocaleString('vi-VN')}</div>
+                </div>
                 <div class="admin-pin">${item.pin}</div>
             </div>
-            <div class="admin-row">
-                <div class="admin-meta">${new Date(item.created_at).toLocaleString('vi-VN')}</div>
+            <div class="admin-actions">
                 <button class="admin-btn red" onclick="adminDeletePin('${item.id}')">ĐÃ XỬ LÝ</button>
             </div>
         </div>
-    `).join('');
+    `).join('') + `</div>`;
 }
 
 async function adminDeletePin(pinId) {

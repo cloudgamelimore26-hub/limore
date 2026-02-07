@@ -81,10 +81,43 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .admin-stat { display: grid; gap: 4px; }
 .admin-stat strong { font-size: 1.1rem; }
 
+/* Admin list (modern) */
+.admin-list { display: grid; gap: 10px; }
+.admin-item { background: #0f0f0f; border: 1px solid #262626; border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.admin-item-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.admin-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-chip { background: #111; border: 1px solid #2b2b2b; color: #ddd; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+.admin-meta-line { color: #8a8a8a; font-size: 0.85rem; margin-top: 4px; }
+.admin-price { font-weight: 900; }
+.admin-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
 /* Overlay & Modal */
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 9999; }
 .modal { background: #0a0a0a; border: 1px solid #333; padding: 30px; border-radius: 10px; width: 90%; position: relative; }
 .close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; color: #555; }
+
+/* Auth */
+.auth-ui { max-width: 420px; padding: 26px; border-radius: 14px; }
+.auth-header { display: grid; gap: 6px; margin-bottom: 14px; }
+.auth-title { font-size: 1.3rem; font-weight: 900; letter-spacing: 0.3px; }
+.auth-sub { color: #9a9a9a; font-size: 0.9rem; }
+.auth-form { display: grid; gap: 12px; }
+.auth-field { display: grid; gap: 6px; font-size: 0.9rem; color: #b5b5b5; }
+.auth-field input {
+    height: 46px; padding: 0 14px; border-radius: 10px;
+    background: #0b0b0b; border: 1px solid #2a2a2a; color: #fff; outline: none;
+}
+.auth-field input:focus { border-color: #4a4a4a; }
+.auth-primary {
+    height: 48px; border-radius: 10px; border: none;
+    background: #fff; color: #000; font-weight: 900; cursor: pointer;
+}
+.auth-primary:hover { background: #e6e6e6; }
+.auth-switch { text-align: center; color: #8e8e8e; font-size: 0.9rem; }
+.auth-link {
+    background: transparent; border: none; color: #fff; font-weight: 800; cursor: pointer; padding: 0 4px;
+}
+.auth-link:hover { color: #cfcfcf; }
 
 /* Toast */
 #toast-container {
@@ -305,4 +338,11 @@ input, select { width: 100%; padding: 12px 12px 12px 45px; margin: 10px 0; backg
     .modal { padding: 22px; border-radius: 14px; width: 92%; }
     .deposit-tabs { flex-direction: column; }
     .bank-grid { grid-template-columns: 1fr; }
+    .overlay { align-items: flex-end; }
+    .auth-ui { width: 100%; max-width: 100%; border-bottom-left-radius: 0; border-bottom-right-radius: 0; padding: 20px; }
+    .admin-item-head { flex-direction: column; align-items: flex-start; }
+    .admin-actions { justify-content: flex-start; width: 100%; }
+    .admin-actions .admin-btn { width: 100%; }
+    .connect-row { grid-template-columns: 1fr; }
+    .btn-send { width: 100%; }
 }
