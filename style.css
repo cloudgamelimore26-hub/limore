@@ -7,7 +7,7 @@
 }
 
 * { box-sizing: border-box; margin:0; padding:0; }
-body { font-family: 'Sora', 'Manrope', 'Inter', sans-serif; background: var(--bg); color: var(--text-main); line-height: 1.5; }
+body { font-family: 'Space Grotesk', 'Sora', sans-serif; background: var(--bg); color: var(--text-main); line-height: 1.55; }
 
 .container { max-width: 1000px; margin: 0 auto; padding: 16px; }
 header { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--border); }
@@ -372,4 +372,159 @@ input, select { width: 100%; padding: 12px 12px 12px 45px; margin: 10px 0; backg
 
     .support-fab { right: 12px; bottom: 12px; }
     .support-panel { right: 0; }
+}
+
+/* Pro UI Overrides */
+:root {
+    --pro-bg: #050505;
+    --pro-card: #0b0b0b;
+    --pro-card-2: #101010;
+    --pro-border: #1f1f1f;
+    --pro-text: #f5f5f5;
+    --pro-sub: #9a9a9a;
+    --pro-accent: #ffffff;
+    --pro-accent-soft: #cfcfcf;
+}
+
+body {
+    background: radial-gradient(1200px 600px at 10% -10%, #151515 0%, transparent 60%),
+                radial-gradient(900px 500px at 110% 10%, #111111 0%, transparent 65%),
+                var(--pro-bg);
+    color: var(--pro-text);
+}
+
+.container { max-width: 1120px; padding: 20px; }
+header { padding: 22px 0; border-bottom: 1px solid var(--pro-border); }
+.logo { font-size: 1.25rem; letter-spacing: 0.6px; }
+.gray-text { color: var(--pro-sub); }
+
+.logo,
+.main-title,
+.card-label,
+.price-tag,
+.admin-title,
+.success-modal h2,
+.deposit-modal h2,
+.auth-title {
+    font-family: 'Sora', 'Space Grotesk', sans-serif;
+}
+
+.server-status {
+    text-align: right;
+    font-size: 12px;
+    color: var(--pro-sub);
+    margin: 10px 0 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--pro-border);
+}
+
+.hero-section { gap: 16px; }
+.main-title { font-size: 2.8rem; letter-spacing: 0.8px; }
+.sub-title { color: var(--pro-sub); }
+
+.user-info-box {
+    background: linear-gradient(180deg, #0b0b0b, #0a0a0a);
+    border: 1px solid var(--pro-border);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+}
+.avatar-circle { background: #0f0f0f; border-color: #202020; }
+.hero-actions { gap: 10px; }
+.btn-action-user {
+    background: #0e0e0e;
+    border: 1px solid #202020;
+    border-radius: 12px;
+    padding: 10px 14px;
+}
+.btn-action-user:hover { background: #ffffff; color: #000; }
+.btn-deposit { background: #ffffff; color: #000; border-color: #fff; }
+.btn-deposit:hover { background: #eaeaea; }
+
+.pricing-grid { gap: 22px; margin: 32px 0; }
+.price-card {
+    background: linear-gradient(180deg, var(--pro-card), var(--pro-card-2));
+    border: 1px solid var(--pro-border);
+    border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.price-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 28px 60px rgba(0,0,0,0.55);
+    border-color: #2b2b2b;
+}
+.card-label { color: var(--pro-sub); letter-spacing: 0.4px; }
+.price-tag { font-size: 2.6rem; }
+.specs-list { color: #b0b0b0; }
+.btn-card {
+    border: 1px solid #2c2c2c;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-weight: 800;
+}
+.btn-card:hover { background: #fff; color: #000; }
+.card-white {
+    background: linear-gradient(180deg, #0f0f0f, #0b0b0b);
+}
+.vip-badge { border-radius: 999px; padding: 4px 12px; letter-spacing: 0.6px; border: 1px solid #222; }
+
+.admin-panel {
+    border-radius: 16px;
+    background: linear-gradient(180deg, #0b0b0b, #0a0a0a);
+    border: 1px solid var(--pro-border);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.3);
+}
+.admin-tab { border-radius: 999px; }
+.admin-card,
+.admin-item {
+    border-radius: 14px;
+    border: 1px solid #242424;
+    background: #0e0e0e;
+}
+
+.overlay { background: rgba(0,0,0,0.92); }
+.modal {
+    border-radius: 16px;
+    border: 1px solid var(--pro-border);
+    background: #0b0b0b;
+    box-shadow: 0 25px 70px rgba(0,0,0,0.55);
+}
+.close-btn { color: #666; }
+
+.deposit-modal { border-radius: 18px; }
+.bank-qr-card { border-radius: 14px; background: #0f0f0f; border: 1px solid #242424; }
+.bank-info { border-radius: 14px; }
+.btn-submit { border-radius: 12px; }
+
+.success-modal { border-radius: 18px; }
+.success-steps { border-radius: 12px; }
+.connect-box { border-radius: 12px; }
+
+#toast-container { right: 18px; top: 18px; }
+.toast {
+    background: #f7f7f7;
+    color: #101010;
+    border-radius: 12px;
+    border: 1px solid #e6e6e6;
+}
+
+.right-notice {
+    background: #0e0e0e;
+    border: 1px solid #262626;
+    color: var(--pro-text);
+}
+.right-notice .desc { color: var(--pro-sub); }
+
+@media (max-width: 768px) {
+    .container { padding: 14px; }
+    .main-title { font-size: 2.1rem; }
+    .price-tag { font-size: 2.2rem; }
+    .price-card { padding: 18px; }
+    .btn-action-user { width: 100%; }
 }
