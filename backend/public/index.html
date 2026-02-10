@@ -1,298 +1,189 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LiMore Cloud | Minimal Experience</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUXE CLOUD | Full Edition</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
-    <div id="toast-container"></div>
-
-    <div id="custom-dialog" class="overlay">
-        <div class="modal dialog-box">
-            <h3 id="dialog-title">THÔNG BÁO</h3>
-            <div id="dialog-body"></div>
-            <div id="dialog-footer"></div>
-        </div>
+    <div class="top-bar">
+        <button id="btnLogout" class="btn-logout-top">
+            <span>ĐĂNG XUẤT</span> <i class="fas fa-sign-out-alt"></i>
+        </button>
     </div>
 
-    <div id="authModal" class="overlay">
-        <div class="modal auth-ui">
-            <span class="close-btn" onclick="closeAuth()">×</span>
-            <div id="authContent"></div>
+    <nav class="sidebar">
+        <div class="logo-area">
+            <div class="logo-box"></div>
+            <span>LIMORE X STEAM LINK</span>
         </div>
-    </div>
+        <ul class="nav-tabs">
+            <li class="nav-item active" data-tab="store"><i class="fas fa-th-large"></i><span>Cửa Hàng</span></li>
+            <li class="nav-item" data-tab="rentals"><i class="fas fa-desktop"></i><span>Thuê Máy</span></li>
+            <li class="nav-item" data-tab="profile"><i class="fas fa-user-circle"></i><span>Cá Nhân</span></li>
+        </ul>
+        <div class="support-box">
+            <a class="support-link" href="https://discord.gg/fECs2b72" target="_blank" rel="noopener">
+                <i class="fab fa-discord"></i>
+                <span>H&#7895; tr&#7907;</span>
+            </a>
+            <div class="support-note">Ghi ch&#250; h&#7895; tr&#7907;</div>
+        </div>    </nav>
 
-    <!-- MODAL CHỜ DUYỆT THUÊ -->
-    <div id="queueModal" class="overlay" style="display: none;">
-        <div class="modal queue-modal">
-            <h2>ĐANG CHỜ ADMIN DUYỆT</h2>
-            <div class="progress-bar">
-                <div id="progress-fill" class="progress-fill"></div>
-            </div>
-            <p style="text-align: center; margin-top: 20px; color: #aaa;">Yêu cầu thuê đã gửi. Thời gian duyệt ước tính: <span id="wait-time">5-15 phút</span></p>
-        </div>
-    </div>
-
-    <!-- MODAL THÀNH CÔNG + HƯỚNG DẪN GỬI PIN -->
-    <div id="successModal" class="overlay" style="display: none;">
-        <div class="modal success-modal">
-            <span class="close-btn" onclick="closeSuccessModal()">×</span>
-            <div class="success-header">
-                <div class="success-badge"><i class="fa-solid fa-check"></i></div>
-                <div>
-                    <h2>THUÊ GÓI THÀNH CÔNG!</h2>
-                    <p class="success-sub">Admin đã duyệt và cấp máy cho bạn.</p>
+    <main class="main-content">
+        <section id="store" class="tab-content active">
+            <div class="glass-header"><h1>LIMORE X STEAM LINK</h1></div>
+            <div class="game-grid">
+                <div class="game-card">
+                    <img src="assets/gta5.jpg" alt="GTA V">
+                    <div class="game-title">GTA V</div>
+                </div>
+                <div class="game-card">
+                    <img src="assets/black-myth-wukong.jpg" alt="Black Myth: Wukong">
+                    <div class="game-title">Black Myth: Wukong</div>
                 </div>
             </div>
+        </section>
 
-            <div class="success-steps">
-                <div class="steps-title">Bước tiếp theo: Pair máy cloud</div>
-                <ol>
-                    <li>Mở ứng dụng <strong>Steam Link</strong> trên điện thoại hoặc PC.</li>
-                    <li>Chọn "<strong>Other Computer</strong>" hoặc "Pair with PIN".</li>
-                    <li>App sẽ hiển thị <strong>mã PIN 4 số</strong> (Pairing Code).</li>
-                    <li><strong>Gửi ngay mã PIN này cho admin</strong> qua Discord (tên đăng nhập: <strong id="user-for-support">...</strong>).</li>
-                    <li>Admin sẽ pair máy → bạn sẽ kết nối được ngay sau đó.</li>
-                </ol>
-            </div>
-
-            <div class="connect-box">
-                <div class="connect-title">Gửi mã kết nối cho admin</div>
-                <p class="connect-desc">Nhập mã Connect PIN (nếu admin yêu cầu). Mã này chỉ để admin cấu hình cho bạn.</p>
-                <div class="connect-row">
-                    <input id="connect-pin-input" class="connect-input" type="text" placeholder="Connect PIN (tùy chọn)" maxlength="6">
-                    <button id="send-connect-btn" class="btn-send">GỬI MÃ</button>
-                </div>
-                <div class="connect-note" id="connect-note">Chưa nhập mã.</div>
-            </div>
-            
-            <p class="success-note">Lưu ý: Chỉ cần pair 1 lần đầu. Sau này kết nối tự động hoặc nhập Connect PIN (nếu admin set).</p>
-            <button class="btn-submit" onclick="closeSuccessModal()">ĐÓNG & CHỜ ADMIN</button>
-        </div>
-    </div>
-
-    <!-- MODAL ADMIN NHẬP PIN PAIRING -->
-    <div id="adminPairModal" class="overlay" style="display: none;">
-        <div class="modal" style="max-width: 520px;">
-            <span class="close-btn" onclick="closeAdminPairModal()">×</span>
-            <h2 style="color: #0f0; text-align: center;">ADMIN: NHẬP PIN PAIRING</h2>
-            <p style="color: #aaa; text-align: center; margin: 15px 0;">Nhập thông tin từ khách gửi.</p>
-            
-            <div style="position: relative; margin-bottom: 15px;">
-                <i class="fa-solid fa-user input-icon"></i>
-                <input type="text" id="pair-username" placeholder="Tên đăng nhập khách">
-            </div>
-            <div style="position: relative; margin-bottom: 15px;">
-                <i class="fa-solid fa-key input-icon"></i>
-                <input type="text" id="pair-pin" placeholder="PIN pairing 4 số" maxlength="4">
-            </div>
-            <div style="position: relative; margin-bottom: 15px;">
-                <i class="fa-solid fa-lock input-icon"></i>
-                <input type="text" id="pair-connect-pin" placeholder="Connect PIN (tùy chọn)" maxlength="4">
-            </div>
-            <button id="btn-admin-pair" class="btn-submit">
-                <span>XÁC NHẬN PAIR</span>
-                <i class="fa-solid fa-spinner fa-spin" style="display:none;"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- MODAL NẠP TIỀN -->
-    <div id="depositModal" class="overlay" style="display: none;">
-        <div class="modal deposit-modal">
-            <span class="close-btn" onclick="closeDepositModal()">×</span>
-            <h2>NẠP TIỀN VÀO TÀI KHOẢN</h2>
-
-            <div class="deposit-tabs modern-tabs">
-                <button class="tab-btn active" data-tab="bank">Ngân hàng</button>
-                <button class="tab-btn" data-tab="card">Thẻ cào</button>
-                <button class="tab-btn" data-tab="history">Lịch sử</button>
-            </div>
-
-            <div class="tab-content active" id="tab-bank">
-                <div class="form-container bank-shell">
-                    <div class="bank-header">
-                        <div>
-                            <div class="bank-title">Nạp tiền bằng VietQR</div>
-                            <div class="bank-sub">Quét mã và chuyển khoản theo thông tin bên dưới</div>
-                        </div>
-                        <div class="bank-pill">Nhanh • An toàn</div>
+        <section id="rentals" class="tab-content">
+            <div class="glass-header"><h1>PLANS</h1></div>
+            <div class="pricing-grid">
+                <div class="price-card hot" data-price="2700">
+                    <div class="badge-hot">HOT</div>
+                    <div class="card-header">
+                        <h3>Hourly</h3>
+                        <div class="price">2.700<span>đ/h</span></div>
                     </div>
+                    <ul class="specs">
+                        <li><i class="fas fa-check"></i> CPU 8 Cores / RAM 16GB</li>
+                        <li><i class="fas fa-check"></i> GPU RTX 3060</li>
+                    </ul>
+                    <button class="btn-rent">THUÊ NGAY</button>
+                </div>
+                <div class="price-card" data-price="199000">
+                    <div class="card-header">
+                        <h3>Monthly</h3>
+                        <div class="price">199.000<span>đ/th</span></div>
+                    </div>
+                    <ul class="specs">
+                        <li><i class="fas fa-check"></i> CPU 12 Cores / RAM 32GB</li>
+                        <li><i class="fas fa-check"></i> GPU RTX 4060</li>
+                    </ul>
+                    <button class="btn-rent-ghost">THUÊ NGAY</button>
+                </div>
+            </div>
+        </section>
 
-                    <div class="bank-grid">
-                        <div class="bank-qr-card">
-                            <div class="qr-badge">VietQR</div>
-                            <img class="qr-image" src="https://i.imgur.com/E1vAutm.png" alt="QR Chuyển khoản">
-                            <div class="qr-note">Quét mã để chuyển khoản nhanh</div>
+        <section id="profile" class="tab-content">
+            <div class="profile-container">
+                <div class="user-hero">
+                    <div class="avatar-ring" id="userIcon"><i class="fas fa-user-secret"></i></div>
+                    <div class="user-info">
+                        <h2 id="display-name">GUEST_USER</h2>
+                        <button class="auth-trigger" id="openAuth">XÁC MINH DANH TÍNH</button>
+                    </div>
+                </div>
+
+                <div class="grid-stats">
+                    <div class="card-black">
+                        <label>TÀI KHOẢN</label>
+                        <h2 id="balance-val">0đ</h2>
+                    </div>
+                    <div class="card-black">
+                        <label>MÃ GIỚI THIỆU</label>
+                        <div class="ref-container">
+                            <span id="refText">---</span>
+                            <i class="fas fa-copy" onclick="copyCode()"></i>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="bank-info pro">
-                            <div class="bank-info-row">
-                                <span>Ngân hàng</span>
-                                <strong>Vietinbank</strong>
-                            </div>
-                            <div class="bank-info-row">
-                                <span>Số TK</span>
-                                <strong>106882688204</strong>
-                            </div>
-                            <div class="bank-info-row">
-                                <span>Chủ TK</span>
-                                <strong>HO VAN MINH</strong>
-                            </div>
-                            <div class="bank-info-row">
-                                <span>Nội dung CK</span>
-                                <div class="bank-content vertical">
-                                    <code id="ck-content">NAP ID-00000</code>
-                                    <button id="copy-ck-btn" class="btn-copy">Copy</button>
+                <div class="deposit-section">
+                    <div class="acc-item">
+                        <div class="acc-header"><span>Nạp tiền tài khoản - ngân hàng</span> <i class="fas fa-chevron-down"></i></div>
+                        <div class="acc-content">
+                            <div class="bank-box">
+                                <div class="bank-qr">
+                                    <img src="https://i.imgur.com/EuvHAfN.png" alt="QR nap tien">
+                                </div>
+                                <div class="bank-info">
+                                    <p>Ng&#226;n h&#224;ng: <strong>VietinBank</strong></p>
+                                    <p>S&#7889; t&#224;i kho&#7843;n: <strong>106882688204</strong></p>
+                                    <p>N&#7897;i dung: <strong id="deposit-memo">MA GIOI THIEU TAI KHOAN</strong></p>
                                 </div>
                             </div>
-                            <div class="bank-hint">Ví dụ: NAP ID-12345</div>
                         </div>
                     </div>
-
-                    <div class="bank-actions">
-                        <button id="btn-submit-bank" class="btn-submit">
-                            <span>TÔI ĐÃ CHUYỂN KHOẢN</span>
-                            <i class="fa-solid fa-spinner fa-spin" style="display:none;"></i>
-                        </button>
-                        <div class="bank-footer">Sau khi chuyển khoản, hệ thống sẽ tự cộng tiền (demo).</div>
+                    <div class="acc-item">
+                        <div class="acc-header"><span>Nạp tiền tài khoản - thẻ cào</span> <i class="fas fa-chevron-down"></i></div>
+                        <div class="acc-content">
+                            <div class="card-form">
+                                <input type="text" placeholder="M&#227; th&#7867; c&#224;o..." class="inp-dark">
+                                <input type="text" placeholder="M&#227; seri..." class="inp-dark">
+                                <button class="btn-dark-small">N&#7840;P TH&#7866;</button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-
-                        <div class="tab-content" id="tab-card">
-                <div class="form-container" style="text-align:center;">
-                    <div style="background:#111;border:1px solid #333;border-radius:10px;padding:24px;">
-                        <div style="font-weight:800;font-size:1.05rem;margin-bottom:8px;">NẠP THẺ CÀO ĐANG BẢO TRÌ</div>
-                        <div style="color:#888;">Vui lòng sử dụng nạp ngân hàng bằng QR.</div>
+                    <div class="acc-item">
+                        <div class="acc-header"><span>Lịch sử nạp tiền</span> <i class="fas fa-chevron-down"></i></div>
+                        <div class="acc-content">
+                            <p style="color: #444; font-size: 12px; padding: 10px 0;">Không có dữ liệu giao dịch.</p>
+                        </div>
                     </div>
-                </div>
-            </div>
-<div class="tab-content" id="tab-history">
-                <div id="history-list" style="min-height: 200px; padding: 10px;"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="container">
-        <header>
-            <div class="logo">LIMORE <span class="gray-text">CLOUD x STEAM LINK</span></div>
-            <div id="nav-right">
-                <button id="main-login-btn" class="btn-login-nav" onclick="openAuth()">ĐĂNG NHẬP</button>
-            </div>
-        </header>
-
-        <section class="hero-section">
-            <div class="server-status">
-                <span class="dot-online"></span> 
-                <span class="status-text">HỆ THỐNG ĐANG HOẠT ĐỘNG</span>
-                <span>| Ping: 17ms</span>
-            </div>
-
-            <div id="user-info-display" class="user-info-box" style="display: none;">
-                <div class="user-profile">
-                    <div class="avatar-circle"><i class="fa-solid fa-user"></i></div>
-                    <div class="user-meta">
-                        <p class="welcome-text">Xin chào, <b id="name-val">...</b> <span class="user-tag" id="id-val"></span></p>
-                        <p class="balance-text">Số dư: <span id="balance-val" class="amount">0đ</span></p>
-                    </div>
-                </div>
-                
-                <div class="hero-actions">
-                    <button class="btn-action-user btn-guide" onclick="openSteamGuide()">
-                        <i class="fa-solid fa-circle-info"></i> HƯỚNG DẪN
-                    </button>
-                    <button class="btn-action-user btn-deposit" onclick="openDepositModal()">
-                        <i class="fa-solid fa-plus"></i> NẠP TIỀN
-                    </button>
-                    <button class="btn-action-user btn-noti" onclick="openNoti()">
-                        <i class="fa-solid fa-bell"></i>
-                        <span class="badge" id="noti-count">0</span>
-                    </button>
-                    <button class="btn-action-user btn-exit" onclick="logout()">
-                        <i class="fa-solid fa-power-off"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <div id="welcome-text">
-                <h1 class="main-title">LIMORE CLOUD</h1>
-                <p class="sub-title">Giải pháp máy tính đám mây hiệu năng cao</p>
+                    <div class="acc-item">
+                        <div class="acc-header"><span>L&#7883;ch s&#7917; thu&#234; m&#225;y</span> <i class="fas fa-chevron-down"></i></div>
+                        <div class="acc-content">
+                            <div class="rent-history" id="rentHistory">
+                                <div class="rent-empty">Ch&#432;a c&#243; l&#432;&#7907;t thu&#234;.</div>
+                            </div>
+                        </div>
+                    </div>                </div>
             </div>
         </section>
+        <div id="toast" class="toast">Kh&#244;ng &#273;&#7911; s&#7889; d&#432;</div>    </main>
 
-        <section id="admin-panel" class="admin-panel" style="display:none;">
-            <div class="admin-header">
-                <div class="admin-title">ADMIN DASHBOARD</div>
-                <div class="admin-actions">
-                    <button id="admin-refresh" class="admin-clear">LÀM MỚI</button>
-                    <button id="admin-clear-pins" class="admin-clear">XÓA PIN</button>
-                </div>
+    <div class="rent-overlay" id="rentModal">
+        <div class="rent-card">
+            <div class="rent-close" id="closeRent">&times;</div>
+            <h2>THU&#202; TH&#192;NH C&#212;NG</h2>
+            <p class="rent-note">H&#432;&#7899;ng d&#7851;n: D&#225;n m&#227; PIN v&#224;o app Steam Link khi &#273;&#432;&#7907;c y&#234;u c&#7847;u.</p>
+            <div class="rent-field">
+                <label>M&#227; PIN Steam (g&#7917;i admin)</label>
+                <input type="text" id="steamPin" placeholder="Nh&#7853;p m&#227; PIN...">
             </div>
-
-            <div class="admin-tabs">
-                <button class="admin-tab active" data-admin-tab="users">Người dùng</button>
-                <button class="admin-tab" data-admin-tab="rents">Thuê gói</button>
-                <button class="admin-tab" data-admin-tab="deposits">Nạp tiền</button>
-                <button class="admin-tab" data-admin-tab="stock">Hết máy</button>
-                <button class="admin-tab" data-admin-tab="stats">Thống kê</button>
-                <button class="admin-tab" data-admin-tab="pins">PIN</button>
+            <div class="rent-field">
+                <label>Ghi ch&#250; cho admin</label>
+                <textarea id="adminNote" rows="3" placeholder="V&#237; d&#7909;: M&#225;y c&#7847;n 1080p, tay c&#7847;m PS..."></textarea>
             </div>
-
-            <div class="admin-body">
-                <div class="admin-section active" id="admin-users"></div>
-                <div class="admin-section" id="admin-rents"></div>
-                <div class="admin-section" id="admin-deposits"></div>
-                <div class="admin-section" id="admin-stock"></div>
-                <div class="admin-section" id="admin-stats"></div>
-                <div class="admin-section" id="admin-pins"></div>
-            </div>
-        </section>
-
-
-        <div class="pricing-grid">
-            <div class="price-card">
-                <div class="card-label">GÓI CƠ BẢN</div>
-                <div class="price-tag">2.700đ<span>/giờ</span></div>
-                <div class="specs-list">
-                    <p><i class="fa-solid fa-microchip"></i> Xeon 16 Core</p>
-                    <p><i class="fa-solid fa-memory"></i> RTX 4090 24GB</p>
-                </div>
-                <button class="btn-card" onclick="checkBuy(2700, 'Gói Cơ Bản')">THUÊ NGAY</button>
-            </div>
-
-            <div class="price-card card-white">
-                <div class="vip-badge">CAO CẤP</div>
-                <div class="card-label">GÓI TỐI ƯU</div>
-                <div class="price-tag">350.000đ<span>/tháng</span></div>
-                <div class="specs-list">
-                    <p><i class="fa-solid fa-microchip"></i> Ryzen 9 7950X</p>
-                    <p><i class="fa-solid fa-memory"></i> RTX 4090 OC</p>
-                </div>
-                <button class="btn-card btn-black" onclick="checkBuy(350000, 'Gói Tối Ưu')">NÂNG CẤP</button>
-            </div>
+            <button class="btn-rent-send" id="sendPin">G&#7916;I ADMIN</button>
         </div>
-
-    </div>
-
-    <!-- FLOATING SUPPORT -->
-    <div class="support-fab">
-        <button class="support-btn" id="support-btn">
-            <i class="fa-brands fa-discord"></i>
-        </button>
-        <div class="support-panel">
-            <div class="support-title">Hỗ trợ nhanh</div>
-            <a class="support-link" href="https://discord.gg/2SHbQ7UN" target="_blank" rel="noopener">Discord</a>
+    </div>    <div class="auth-overlay" id="authModal">
+        <div class="auth-card">
+            <div class="close-modal">&times;</div>
+            <h2>XÁC MINH</h2>
+            <form id="loginForm">
+                <input type="text" id="nameInput" placeholder="TÊN NGƯỜI DÙNG" required>
+                <input type="password" placeholder="MẬT KHẨU" required>
+                <button type="submit" class="btn-login-submit">ĐĂNG NHẬP</button>
+            </form>
         </div>
     </div>
 
     <script src="script.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
 
 
