@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const adminSection = document.getElementById('admin');
     if (adminSection) adminSection.style.display = isAdmin ? 'block' : 'none';
+    if (isAdmin) { initAdmin(); }
     // 1. Kiá»ƒm tra LocalStorage Ä‘á»ƒ giá»¯ Ä‘Äƒng nháº­p khi reset trang
     const savedData = localStorage.getItem('luxe_user');
     if (savedData) applyUserUI(JSON.parse(savedData));
@@ -149,3 +150,226 @@ function copyCode() {
 }
 
 
+
+// === ADMIN (server) ===
+let adminToken = localStorage.getItem('admin_token') || null;
+let adminData = { users: [], rents: [], deposits: [], pins: [], stats: null };
+
+async function adminFetch(path, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (adminToken) headers.Authorization = `Bearer ${adminToken}`;
+    const res = await fetch(path, { ...options, headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || 'admin_error');
+    return data;
+}
+
+async function initAdmin() {
+    const btnRefresh = document.getElementById('admin-refresh');
+    if (btnRefresh) btnRefresh.onclick = () => loadAdminData();
+    const search = document.getElementById('admin-search');
+    if (search) search.oninput = () => renderAdminAll();
+
+    if (!adminToken) {
+        const pass = prompt('Nh?p m?t kh?u admin:');
+        if (!pass) return;
+        try {
+            const data = await adminFetch('/api/admin/login', { method: 'POST', body: JSON.stringify({ password: pass }) });
+            adminToken = data.token;
+            localStorage.setItem('admin_token', adminToken);
+        } catch (e) {
+            alert('M?t kh?u admin không dúng.');
+            return;
+        }
+    }
+    loadAdminData();
+}
+
+async function loadAdminData() {
+    try {
+        const [users, rents, deposits, pins, stats] = await Promise.all([
+            adminFetch('/api/admin/users'),
+            adminFetch('/api/admin/rents'),
+            adminFetch('/api/admin/deposits'),
+            adminFetch('/api/admin/pins'),
+            adminFetch('/api/admin/stats')
+        ]);
+        adminData = { users, rents, deposits, pins, stats };
+        renderAdminAll();
+    } catch (e) {
+        if (e.message === 'unauthorized') {
+            adminToken = null;
+            localStorage.removeItem('admin_token');
+            initAdmin();
+            return;
+        }
+        alert('Không t?i du?c d? li?u admin.');
+    }
+}
+
+function adminFilter(list, text, fields) {
+    if (!text) return list;
+    const t = text.toLowerCase();
+    return list.filter(item => fields.some(f => String(item[f] || '').toLowerCase().includes(t)));
+}
+
+function renderAdminAll() {
+    renderAdminStats();
+    renderAdminRents();
+    renderAdminDeposits();
+    renderAdminUsers();
+    renderAdminPins();
+}
+
+function renderAdminStats() {
+    const el = document.getElementById('admin-stats');
+    if (!el) return;
+    const s = adminData.stats || { users: 0, balance: 0, deposits: 0, rents: 0 };
+    el.innerHTML = `
+        <div class="admin-stat-card"><div class="label">USERS</div><div class="value">${s.users}</div></div>
+        <div class="admin-stat-card"><div class="label">BALANCE</div><div class="value">${Number(s.balance || 0).toLocaleString('vi-VN')}d</div></div>
+        <div class="admin-stat-card"><div class="label">DEPOSITS</div><div class="value">${Number(s.deposits || 0).toLocaleString('vi-VN')}d</div></div>
+        <div class="admin-stat-card"><div class="label">RENTS</div><div class="value">${Number(s.rents || 0).toLocaleString('vi-VN')}d</div></div>
+    `;
+}
+
+function renderAdminRents() {
+    const el = document.getElementById('admin-rents');
+    if (!el) return;
+    const search = document.getElementById('admin-search')?.value || '';
+    const pending = (adminData.rents || []).filter(r => r.status === 'pending');
+    const list = adminFilter(pending, search, ['username', 'package_name']);
+    if (!list.length) { el.innerHTML = 'Không có yêu c?u.'; return; }
+    el.innerHTML = `<div class="admin-list">` + list.map(r => `
+        <div class="admin-item">
+            <div class="admin-item-head">
+                <div>
+                    <div class="admin-title-row"><strong>${r.package_name}</strong><span class="admin-chip">CH?</span></div>
+                    <div class="admin-meta-line">${r.username} • ${new Date(r.created_at).toLocaleString('vi-VN')}</div>
+                </div>
+                <div class="admin-price">${Number(r.price).toLocaleString('vi-VN')}d</div>
+            </div>
+            <div class="admin-actions">
+                <button class="admin-btn" onclick="adminApproveRent('${r.id}', 1)">DUY?T 1H</button>
+                <button class="admin-btn ghost" onclick="adminApproveRent('${r.id}', 6)">6H</button>
+                <button class="admin-btn ghost" onclick="adminApproveRent('${r.id}', 24)">1 NGÀY</button>
+                <button class="admin-btn warn" onclick="adminApproveRent('${r.id}', 720)">30 NGÀY</button>
+                <button class="admin-btn danger" onclick="adminRejectRent('${r.id}')">T? CH?I</button>
+            </div>
+        </div>
+    `).join('') + `</div>`;
+}
+
+function renderAdminDeposits() {
+    const el = document.getElementById('admin-deposits');
+    if (!el) return;
+    const search = document.getElementById('admin-search')?.value || '';
+    const pending = (adminData.deposits || []).filter(d => d.status === 'pending');
+    const list = adminFilter(pending, search, ['username']);
+    if (!list.length) { el.innerHTML = 'Không có yêu c?u.'; return; }
+    el.innerHTML = `<div class="admin-list">` + list.map(d => `
+        <div class="admin-item">
+            <div class="admin-item-head">
+                <div>
+                    <div class="admin-title-row"><strong>${d.username}</strong><span class="admin-chip">N?P</span></div>
+                    <div class="admin-meta-line">${new Date(d.created_at).toLocaleString('vi-VN')}</div>
+                </div>
+                <div class="admin-price">${Number(d.amount).toLocaleString('vi-VN')}d</div>
+            </div>
+            <div class="admin-actions">
+                <button class="admin-btn" onclick="adminApproveDeposit('${d.id}')">DUY?T</button>
+                <button class="admin-btn danger" onclick="adminRejectDeposit('${d.id}')">T? CH?I</button>
+            </div>
+        </div>
+    `).join('') + `</div>`;
+}
+
+function renderAdminUsers() {
+    const el = document.getElementById('admin-users');
+    if (!el) return;
+    const search = document.getElementById('admin-search')?.value || '';
+    const list = adminFilter(adminData.users || [], search, ['username', 'id', 'admin_note']);
+    if (!list.length) { el.innerHTML = 'Không có d? li?u.'; return; }
+    el.innerHTML = `<div class="admin-list">` + list.map(u => `
+        <div class="admin-item">
+            <div class="admin-item-head">
+                <div>
+                    <div class="admin-title-row"><strong>${u.username}</strong><span class="admin-chip">ID: ${u.id}</span></div>
+                    <div class="admin-meta-line">S? du: ${Number(u.balance || 0).toLocaleString('vi-VN')}d</div>
+                </div>
+                <div class="admin-chip">${u.is_locked ? 'ÐÃ KHÓA' : 'ÐANG M?'}</div>
+            </div>
+            <div class="admin-actions">
+                <button class="admin-btn ghost" onclick="adminAdjustBalance('${u.id}', 50000)">+50K</button>
+                <button class="admin-btn ghost" onclick="adminAdjustBalance('${u.id}', -50000)">-50K</button>
+                <button class="admin-btn warn" onclick="adminToggleLock('${u.id}', ${u.is_locked ? 'false' : 'true'})">${u.is_locked ? 'M? KHÓA' : 'KHÓA'}</button>
+                <button class="admin-btn danger" onclick="adminDeleteUser('${u.id}')">XÓA</button>
+            </div>
+            <div class="admin-actions">
+                <input class="admin-search" style="flex:1" id="note-${u.id}" placeholder="Ghi chú admin..." value="${(u.admin_note || '').replace(/"/g,'&quot;')}" />
+                <button class="admin-btn" onclick="adminSaveNote('${u.id}')">LUU</button>
+            </div>
+        </div>
+    `).join('') + `</div>`;
+}
+
+function renderAdminPins() {
+    const el = document.getElementById('admin-pins');
+    if (!el) return;
+    const search = document.getElementById('admin-search')?.value || '';
+    const list = adminFilter(adminData.pins || [], search, ['username', 'user_id', 'pin']);
+    if (!list.length) { el.innerHTML = 'Không có PIN.'; return; }
+    el.innerHTML = `<div class="admin-list">` + list.map(p => `
+        <div class="admin-item">
+            <div class="admin-item-head">
+                <div>
+                    <div class="admin-title-row"><strong>${p.username}</strong><span class="admin-chip">PIN</span></div>
+                    <div class="admin-meta-line">${p.user_id} • ${new Date(p.created_at).toLocaleString('vi-VN')}</div>
+                </div>
+                <div class="admin-price">${p.pin}</div>
+            </div>
+            <div class="admin-actions">
+                <button class="admin-btn danger" onclick="adminDeletePin('${p.id}')">ÐÃ X? LÝ</button>
+            </div>
+        </div>
+    `).join('') + `</div>`;
+}
+
+async function adminApproveRent(id, hours) {
+    await adminFetch('/api/admin/rent/approve', { method: 'POST', body: JSON.stringify({ rentId: id, durationHours: hours }) });
+    loadAdminData();
+}
+async function adminRejectRent(id) {
+    await adminFetch('/api/admin/rent/reject', { method: 'POST', body: JSON.stringify({ rentId: id }) });
+    loadAdminData();
+}
+async function adminApproveDeposit(id) {
+    await adminFetch('/api/admin/deposit/approve', { method: 'POST', body: JSON.stringify({ depositId: id }) });
+    loadAdminData();
+}
+async function adminRejectDeposit(id) {
+    await adminFetch('/api/admin/deposit/reject', { method: 'POST', body: JSON.stringify({ depositId: id }) });
+    loadAdminData();
+}
+async function adminAdjustBalance(id, delta) {
+    await adminFetch('/api/admin/user/balance', { method: 'POST', body: JSON.stringify({ userId: id, delta }) });
+    loadAdminData();
+}
+async function adminToggleLock(id, locked) {
+    await adminFetch('/api/admin/user/lock', { method: 'POST', body: JSON.stringify({ userId: id, locked }) });
+    loadAdminData();
+}
+async function adminDeleteUser(id) {
+    if (!confirm('Xóa user này?')) return;
+    await adminFetch(`/api/admin/user/${id}`, { method: 'DELETE' });
+    loadAdminData();
+}
+async function adminSaveNote(id) {
+    const val = document.getElementById(`note-${id}`)?.value || '';
+    await adminFetch('/api/admin/user/note', { method: 'POST', body: JSON.stringify({ userId: id, note: val }) });
+    loadAdminData();
+}
+async function adminDeletePin(id) {
+    await adminFetch(`/api/admin/pins/${id}`, { method: 'DELETE' });
+    loadAdminData();
+}

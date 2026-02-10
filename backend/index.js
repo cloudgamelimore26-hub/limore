@@ -84,6 +84,7 @@ app.post('/api/auth/login', (req, res) => {
 
   db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
     if (err || !user || user.password !== password) return res.status(401).json({ error: 'invalid_credentials' });
+    if (user.is_locked) return res.status(403).json({ error: 'locked' });
     const token = randomUUID();
     sessions.set(token, user.id);
     res.json({ token, user: { id: user.id, username: user.username, balance: user.balance } });
@@ -100,8 +101,9 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 app.get('/api/user/me', auth, (req, res) => {
-  db.get('SELECT id, username, balance FROM users WHERE id = ?', [req.userId], (err, user) => {
+  db.get('SELECT id, username, balance, is_locked FROM users WHERE id = ?', [req.userId], (err, user) => {
     if (err || !user) return res.status(404).json({ error: 'not_found' });
+    if (user.is_locked) return res.status(403).json({ error: 'locked' });
     res.json(user);
   });
 });
@@ -282,9 +284,27 @@ app.post('/api/admin/deposit/reject', adminAuth, (req, res) => {
 
 // ADMIN: users
 app.get('/api/admin/users', adminAuth, (req, res) => {
-  db.all('SELECT id, username, balance, created_at FROM users ORDER BY created_at DESC', [], (err, rows) => {
+  db.all('SELECT id, username, balance, created_at, is_locked, admin_note FROM users ORDER BY created_at DESC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: 'db_error' });
     res.json(rows);
+  });
+});
+
+app.post('/api/admin/user/lock', adminAuth, (req, res) => {
+  const { userId, locked } = req.body || {};
+  if (!userId || typeof locked !== 'boolean') return res.status(400).json({ error: 'invalid_payload' });
+  db.run('UPDATE users SET is_locked = ? WHERE id = ?', [locked ? 1 : 0, userId], function (err) {
+    if (err || this.changes === 0) return res.status(404).json({ error: 'not_found' });
+    res.json({ ok: true });
+  });
+});
+
+app.post('/api/admin/user/note', adminAuth, (req, res) => {
+  const { userId, note } = req.body || {};
+  if (!userId) return res.status(400).json({ error: 'invalid_payload' });
+  db.run('UPDATE users SET admin_note = ? WHERE id = ?', [note || '', userId], function (err) {
+    if (err || this.changes === 0) return res.status(404).json({ error: 'not_found' });
+    res.json({ ok: true });
   });
 });
 

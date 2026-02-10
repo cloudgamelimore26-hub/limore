@@ -10,8 +10,14 @@ db.serialize(() => {
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     balance INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    is_locked INTEGER NOT NULL DEFAULT 0,
+    admin_note TEXT
   )`);
+
+  // lightweight migrations
+  db.run('ALTER TABLE users ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0', () => {});
+  db.run('ALTER TABLE users ADD COLUMN admin_note TEXT', () => {});
 
   db.run(`CREATE TABLE IF NOT EXISTS deposits (
     id TEXT PRIMARY KEY,
