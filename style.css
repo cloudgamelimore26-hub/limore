@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --black: #000000;
     --black-soft: #080808;
     --gray: #121212;
@@ -76,7 +76,8 @@ body { background: var(--black); color: var(--white); display: flex; }
     .pricing-grid, .grid-stats { grid-template-columns: 1fr; }
     .support-box { display: none; }
     .bank-box { flex-direction: column; }
-    .bank-qr { width: 140px; }
+    .bank-qr { width: 100px; }
+    .bank-qr img { padding: 6px; }
 }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -121,6 +122,12 @@ body { background: var(--black); color: var(--white); display: flex; }
 .btn-connect { background: #fff; color: #000; border: none; padding: 8px 10px; font-size: 10px; font-weight: 900; cursor: pointer; letter-spacing: 1px; }
 .btn-remove { background: transparent; color: #fff; border: 1px solid #333; padding: 8px 10px; font-size: 10px; font-weight: 900; cursor: pointer; letter-spacing: 1px; }
 .rent-empty { font-size: 12px; color: #666; }
+
+/* Store Intro */
+.store-intro { margin: 16px 0 22px; display: grid; gap: 10px; }
+.intro-text { color: #bdbdbd; font-size: 13px; line-height: 1.7; }
+.intro-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: #8f8f8f; letter-spacing: 0.5px; }
+.intro-alert { color: #ff4d4d; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
 
 /* Admin Professional */
 .admin-top { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
