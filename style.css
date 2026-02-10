@@ -122,3 +122,11 @@ body { background: var(--black); color: var(--white); display: flex; }
 .btn-remove { background: transparent; color: #fff; border: 1px solid #333; padding: 8px 10px; font-size: 10px; font-weight: 900; cursor: pointer; letter-spacing: 1px; }
 .rent-empty { font-size: 12px; color: #666; }
 
+/* ADMIN (hidden by default) */
+.admin-only { display: none; }
+.admin-panel { display: none; }
+.admin-grid { display: grid; gap: 16px; margin-top: 20px; }
+.admin-card { background: var(--black-soft); border: 1px solid var(--gray); padding: 22px; }
+.admin-title { font-size: 12px; color: var(--dim); letter-spacing: 2px; margin-bottom: 10px; }
+.admin-body { color: #aaa; font-size: 12px; }
+

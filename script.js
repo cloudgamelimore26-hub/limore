@@ -1,4 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. Admin view via ?admin=1
+    const params = new URLSearchParams(window.location.search);
+    const isAdmin = params.get('admin') === '1';
+    document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdmin ? 'flex' : 'none';
+    });
+    const adminSection = document.getElementById('admin');
+    if (adminSection) adminSection.style.display = isAdmin ? 'block' : 'none';
     // 1. Kiểm tra LocalStorage để giữ đăng nhập khi reset trang
     const savedData = localStorage.getItem('luxe_user');
     if (savedData) applyUserUI(JSON.parse(savedData));

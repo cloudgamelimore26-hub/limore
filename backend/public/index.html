@@ -24,6 +24,7 @@
             <li class="nav-item active" data-tab="store"><i class="fas fa-th-large"></i><span>Cửa Hàng</span></li>
             <li class="nav-item" data-tab="rentals"><i class="fas fa-desktop"></i><span>Thuê Máy</span></li>
             <li class="nav-item" data-tab="profile"><i class="fas fa-user-circle"></i><span>Cá Nhân</span></li>
+            <li class="nav-item admin-only" data-tab="admin"><i class="fas fa-user-shield"></i><span>Admin</span></li>
         </ul>
         <div class="support-box">
             <a class="support-link" href="https://discord.gg/fECs2b72" target="_blank" rel="noopener">
@@ -141,6 +142,24 @@
                             </div>
                         </div>
                     </div>                </div>
+            </div>
+        </section>
+
+        <section id="admin" class="tab-content admin-panel">
+            <div class="glass-header"><h1>ADMIN PANEL</h1></div>
+            <div class="admin-grid">
+                <div class="admin-card">
+                    <div class="admin-title">Thuê gói chờ duyệt</div>
+                    <div id="admin-rents" class="admin-body">Chưa có dữ liệu.</div>
+                </div>
+                <div class="admin-card">
+                    <div class="admin-title">Nạp tiền chờ duyệt</div>
+                    <div id="admin-deposits" class="admin-body">Chưa có dữ liệu.</div>
+                </div>
+                <div class="admin-card">
+                    <div class="admin-title">PIN người chơi</div>
+                    <div id="admin-pins" class="admin-body">Chưa có dữ liệu.</div>
+                </div>
             </div>
         </section>
         <div id="toast" class="toast">Kh&#244;ng &#273;&#7911; s&#7889; d&#432;</div>    </main>
