@@ -2,44 +2,45 @@
     const qs = new URLSearchParams(window.location.search);
     const isAdmin = qs.get('admin') === '1';
 
-    // show admin UI if present
-    document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = isAdmin ? 'flex' : 'none';
-    });
-    const adminSection = document.getElementById('admin');
-    if (adminSection) adminSection.style.display = isAdmin ? 'block' : 'none';
-
-    // tabs
-    const tabs = document.querySelectorAll('.nav-item');
-    const contents = document.querySelectorAll('.tab-content');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            const id = tab.getAttribute('data-tab');
-            const target = document.getElementById(id);
-            if (target) target.classList.add('active');
-        });
-    });
-
-    // accordion
-    document.querySelectorAll('.acc-header').forEach(header => {
-        header.addEventListener('click', () => header.parentElement.classList.toggle('active'));
-    });
-
-    // auth modal
     const authModal = document.getElementById('authModal');
     const openAuth = document.getElementById('openAuth');
     const closeAuth = document.querySelector('.close-modal');
-    if (openAuth && authModal) openAuth.onclick = () => authModal.style.display = 'block';
-    if (closeAuth && authModal) closeAuth.onclick = () => authModal.style.display = 'none';
-
-    // logout
     const btnLogout = document.getElementById('btnLogout');
+    const toastEl = document.getElementById('toast');
+
+    document.querySelectorAll('.admin-only').forEach((el) => {
+        el.style.display = isAdmin ? 'flex' : 'none';
+    });
+
+    const adminSection = document.getElementById('admin');
+    if (adminSection) adminSection.style.display = isAdmin ? 'block' : 'none';
+
+    const tabs = document.querySelectorAll('.nav-item');
+    const contents = document.querySelectorAll('.tab-content');
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            tabs.forEach((t) => t.classList.remove('active'));
+            contents.forEach((c) => c.classList.remove('active'));
+            tab.classList.add('active');
+            const id = tab.getAttribute('data-tab');
+            const target = document.getElementById(id);
+            if (target) {
+                target.style.display = '';
+                target.classList.add('active');
+            }
+        });
+    });
+
+    document.querySelectorAll('.acc-header').forEach((header) => {
+        header.addEventListener('click', () => header.parentElement.classList.toggle('active'));
+    });
+
+    if (openAuth && authModal) openAuth.onclick = () => (authModal.style.display = 'block');
+    if (closeAuth && authModal) closeAuth.onclick = () => (authModal.style.display = 'none');
+
     if (btnLogout) {
         btnLogout.onclick = () => {
-            if (confirm('Xác nhận đăng xuất khỏi hệ thống?')) {
+            if (confirm('Xac nhan dang xuat khoi he thong?')) {
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('luxe_user');
                 location.reload();
@@ -47,18 +48,20 @@
         };
     }
 
-    // toast
-    const toastEl = document.getElementById('toast');
     function showToast(msg) {
         if (!toastEl) return;
-        toastEl.innerText = msg;
+        toastEl.textContent = msg;
         toastEl.classList.add('show');
         clearTimeout(showToast._t);
-        showToast._t = setTimeout(() => toastEl.classList.remove('show'), 2200);
+        showToast._t = setTimeout(() => toastEl.classList.remove('show'), 2400);
     }
 
     function openAuthModal() {
         if (authModal) authModal.style.display = 'block';
+    }
+
+    function formatMoney(v) {
+        return `${Number(v || 0).toLocaleString('vi-VN')}d`;
     }
 
     function getBalanceValue() {
@@ -67,166 +70,204 @@
         return digits ? parseInt(digits, 10) : 0;
     }
 
-    // api helper
     async function apiFetch(path, options = {}) {
         const token = localStorage.getItem('auth_token');
         const headers = Object.assign({}, options.headers || {});
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (token) headers.Authorization = `Bearer ${token}`;
         if (!headers['Content-Type'] && options.body) headers['Content-Type'] = 'application/json';
+
         const res = await fetch(path, Object.assign({}, options, { headers }));
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+            let errText = '';
+            try {
+                const errJson = await res.json();
+                errText = errJson.error || JSON.stringify(errJson);
+            } catch (_) {
+                errText = await res.text();
+            }
+            throw new Error(errText || 'request_failed');
+        }
         return res.json();
     }
 
     function applyUserUI(data) {
-    const displayName = document.getElementById('display-name');
-    const memo = document.getElementById('deposit-memo');
-    const icon = document.getElementById('userIcon');
-    const ref = document.getElementById('refText');
-    const balance = document.getElementById('balance-val');
-    const name = (data.username || data.name || '').toUpperCase();
-    if (displayName) displayName.innerText = name || 'USER';
-    if (memo) memo.innerText = `NAP ${data.id || name || 'USER'}`;
-    if (icon) icon.innerHTML = '<i class="fas fa-check-circle" style="color:white"></i>';
-    if (btnLogout) btnLogout.style.display = 'block';
-    if (openAuth) openAuth.style.display = 'none';
-    if (ref) {
-        const code = data.ref_code || (name ? `LX-${name.substring(0,3)}` : '---');
-        ref.innerText = code;
+        const displayName = document.getElementById('display-name');
+        const memo = document.getElementById('deposit-memo');
+        const icon = document.getElementById('userIcon');
+        const ref = document.getElementById('refText');
+        const balance = document.getElementById('balance-val');
+
+        const username = (data.username || data.name || 'USER').toUpperCase();
+        if (displayName) displayName.innerText = username;
+        if (memo) memo.innerText = `NAP ${data.id || username}`;
+        if (icon) icon.innerHTML = '<i class="fas fa-check-circle" style="color:white"></i>';
+        if (btnLogout) btnLogout.style.display = 'block';
+        if (openAuth) openAuth.style.display = 'none';
+        if (ref) ref.innerText = data.ref_code || `LX-${username.substring(0, 3)}`;
+        if (balance && data.balance !== undefined) balance.innerText = formatMoney(data.balance);
     }
-    if (balance && data.balance !== undefined) balance.innerText = `${Number(data.balance).toLocaleString('vi-VN')}đ`;
-}
+
     async function loadMe() {
         try {
-            const data = await apiFetch('/api/auth/me');
-            localStorage.setItem('luxe_user', JSON.stringify(data));
-            applyUserUI(data);
-        } catch (e) {
-            // no session
+            const me = await apiFetch('/api/user/me');
+            localStorage.setItem('luxe_user', JSON.stringify(me));
+            applyUserUI(me);
+        } catch (_) {
+            // no active session
         }
     }
 
-    // login/register
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.onsubmit = async (e) => {
             e.preventDefault();
             const username = document.getElementById('nameInput')?.value?.trim();
             const password = document.getElementById('passInput')?.value?.trim();
+
             if (!username || !password) {
-                showToast('Vui lòng nhập đủ thông tin');
+                showToast('Vui long nhap day du tai khoan va mat khau');
                 return;
             }
+
             try {
-                const res = await fetch('/api/auth/login', {
+                let data;
+                const loginRes = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                let data;
-                if (res.ok) {
-                    data = await res.json();
+
+                if (loginRes.ok) {
+                    data = await loginRes.json();
                 } else {
-                    const r2 = await fetch('/api/auth/register', {
+                    const regRes = await fetch('/api/auth/register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
                     });
-                    if (!r2.ok) throw new Error(await r2.text());
-                    data = await r2.json();
+                    if (!regRes.ok) throw new Error('auth_failed');
+                    data = await regRes.json();
                 }
+
                 localStorage.setItem('auth_token', data.token);
                 await loadMe();
+                await loadRentHistory();
                 if (authModal) authModal.style.display = 'none';
-                showToast('Đăng nhập thành công');
-            } catch (err) {
-                showToast('Đăng nhập / đăng ký thất bại');
+                showToast('Dang nhap thanh cong');
+            } catch (_) {
+                showToast('Dang nhap / dang ky that bai');
             }
         };
     }
 
-    // rent modal
     const rentModal = document.getElementById('rentModal');
     const closeRent = document.getElementById('closeRent');
-    if (closeRent && rentModal) closeRent.onclick = () => rentModal.style.display = 'none';
+    if (closeRent && rentModal) closeRent.onclick = () => (rentModal.style.display = 'none');
     if (rentModal) {
         rentModal.addEventListener('click', (e) => {
             if (e.target === rentModal) rentModal.style.display = 'none';
         });
     }
 
-    function addRentHistory(plan, price) {
+    function appendRentItem(r) {
         const list = document.getElementById('rentHistory');
         if (!list) return;
         const empty = list.querySelector('.rent-empty');
         if (empty) empty.remove();
+
+        const title = r.package_name || r.packageName || 'PLAN';
+        const created = r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN');
+
         const item = document.createElement('div');
         item.className = 'rent-item';
-        const time = new Date().toLocaleString('vi-VN');
         item.innerHTML = `
             <div>
-                <div class="rent-info">${plan} • ${price.toLocaleString('vi-VN')}đ</div>
-                <div class="rent-meta">Kết nối • ${time}</div>
+                <div class="rent-info">${title} • ${formatMoney(r.price)}</div>
+                <div class="rent-meta">${r.status || 'pending'} • ${created}</div>
             </div>
             <div class="rent-actions">
-                <button class="btn-connect">KẾT NỐI</button>
-                <button class="btn-remove">XÓA MÁY</button>
+                <button class="btn-connect">KET NOI</button>
+                <button class="btn-remove">XOA MAY</button>
             </div>
         `;
         list.prepend(item);
     }
 
+    async function loadRentHistory() {
+        const list = document.getElementById('rentHistory');
+        if (!list) return;
+        try {
+            const rents = await apiFetch('/api/user/rents');
+            list.innerHTML = '';
+            if (!rents || rents.length === 0) {
+                list.innerHTML = '<div class="rent-empty">Chua co luot thue.</div>';
+                return;
+            }
+            rents.forEach((r) => appendRentItem(r));
+        } catch (_) {
+            list.innerHTML = '<div class="rent-empty">Chua co luot thue.</div>';
+        }
+    }
+
     const rentHistoryEl = document.getElementById('rentHistory');
     if (rentHistoryEl) {
         rentHistoryEl.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-remove')) {
-                const item = e.target.closest('.rent-item');
-                if (item) item.remove();
-                if (!rentHistoryEl.querySelector('.rent-item')) {
-                    rentHistoryEl.innerHTML = '<div class="rent-empty">Chưa có lượt thuê.</div>';
-                }
+            if (!e.target.classList.contains('btn-remove')) return;
+            const row = e.target.closest('.rent-item');
+            if (row) row.remove();
+            if (!rentHistoryEl.querySelector('.rent-item')) {
+                rentHistoryEl.innerHTML = '<div class="rent-empty">Chua co luot thue.</div>';
             }
         });
     }
 
-    document.querySelectorAll('.price-card .btn-rent, .price-card .btn-rent-ghost').forEach(btn => {
+    document.querySelectorAll('.price-card .btn-rent, .price-card .btn-rent-ghost').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const token = localStorage.getItem('auth_token');
             if (!token) {
-                showToast('Vui lòng đăng nhập để thuê gói');
+                showToast('Vui long dang nhap de thue goi');
                 openAuthModal();
                 return;
             }
+
             const card = btn.closest('.price-card');
             const price = parseInt(card?.dataset?.price || '0', 10);
-            const plan = card?.querySelector('h3')?.innerText || 'PLAN';
-            const balance = getBalanceValue();
-            if (balance < price) {
-                showToast('Không đủ số dư');
+            const packageName = card?.querySelector('h3')?.innerText || 'PLAN';
+
+            if (getBalanceValue() < price) {
+                showToast('Khong du so du');
                 return;
             }
+
             try {
-                const durationHours = plan.toLowerCase().includes('month') ? 720 : 1;
-                await apiFetch('/api/rent', {
+                const durationHours = packageName.toLowerCase().includes('month') ? 720 : 1;
+                const rent = await apiFetch('/api/rent', {
                     method: 'POST',
-                    body: JSON.stringify({ packageName: plan, price, durationHours })
+                    body: JSON.stringify({ packageName, price, durationHours })
                 });
-                showToast('Thuê thành công');
+                showToast('Thue thanh cong, cho admin duyet');
                 if (rentModal) rentModal.style.display = 'block';
-                addRentHistory(plan, price);
-            } catch (e) {
-                showToast('Thuê thất bại');
+                appendRentItem({ package_name: packageName, price, status: rent.status, created_at: new Date().toISOString() });
+                loadMe();
+            } catch (err) {
+                const msg = String(err.message || '');
+                if (msg.includes('out_of_stock')) {
+                    showToast('Goi nay tam het may');
+                } else if (msg.includes('insufficient_balance')) {
+                    showToast('Khong du so du');
+                } else {
+                    showToast('Thue that bai');
+                }
             }
         });
     });
 
-    // send pin
     const sendPin = document.getElementById('sendPin');
     if (sendPin) {
         sendPin.addEventListener('click', async () => {
             const pin = document.getElementById('steamPin')?.value?.trim();
-            if (!pin || !/^\\d{4,6}$/.test(pin)) {
-                showToast('PIN cần 4-6 số');
+            if (!pin || !/^\d{4,6}$/.test(pin)) {
+                showToast('PIN can 4-6 so');
                 return;
             }
             try {
@@ -234,30 +275,13 @@
                     method: 'POST',
                     body: JSON.stringify({ pin })
                 });
-                showToast('Đã gửi PIN cho admin');
-            } catch (e) {
-                showToast('Gửi PIN thất bại');
+                showToast('Da gui PIN cho admin');
+            } catch (_) {
+                showToast('Gui PIN that bai');
             }
         });
     }
 
-    async function loadRentHistory() {
-        try {
-            const data = await apiFetch('/api/user/rents');
-            const list = document.getElementById('rentHistory');
-            if (!list) return;
-            list.innerHTML = '';
-            if (!data || data.length === 0) {
-                list.innerHTML = '<div class="rent-empty">Chưa có lượt thuê.</div>';
-                return;
-            }
-            data.forEach(r => addRentHistory(r.packageName, Number(r.price)));
-        } catch (e) {
-            // ignore
-        }
-    }
-
-    // admin
     function getAdminToken() {
         return localStorage.getItem('admin_token');
     }
@@ -265,36 +289,11 @@
     async function adminFetch(path, options = {}) {
         const token = getAdminToken();
         const headers = Object.assign({}, options.headers || {});
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (token) headers.Authorization = `Bearer ${token}`;
         if (!headers['Content-Type'] && options.body) headers['Content-Type'] = 'application/json';
         const res = await fetch(path, Object.assign({}, options, { headers }));
         if (!res.ok) throw new Error(await res.text());
         return res.json();
-    }
-
-    async function initAdmin() {
-        let token = getAdminToken();
-        if (!token) {
-            const pwd = prompt('Nhập mật khẩu admin');
-            if (!pwd) return;
-            const res = await fetch('/api/admin/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pwd })
-            });
-            if (!res.ok) {
-                showToast('Sai mật khẩu admin');
-                return;
-            }
-            const data = await res.json();
-            localStorage.setItem('admin_token', data.token);
-        }
-        loadAdminData();
-
-        const refreshBtn = document.getElementById('admin-refresh');
-        if (refreshBtn) refreshBtn.onclick = loadAdminData;
-        const search = document.getElementById('admin-search');
-        if (search) search.oninput = () => loadAdminData(search.value.trim());
     }
 
     function renderAdminList(containerId, rows, renderRow) {
@@ -302,10 +301,10 @@
         if (!wrap) return;
         wrap.innerHTML = '';
         if (!rows || rows.length === 0) {
-            wrap.innerHTML = '<div class="admin-empty">Không có dữ liệu.</div>';
+            wrap.innerHTML = '<div class="admin-empty">Khong co du lieu.</div>';
             return;
         }
-        rows.forEach(r => wrap.insertAdjacentHTML('beforeend', renderRow(r)));
+        rows.forEach((row) => wrap.insertAdjacentHTML('beforeend', renderRow(row)));
     }
 
     async function loadAdminData(keyword = '') {
@@ -321,120 +320,180 @@
             const statsEl = document.getElementById('admin-stats');
             if (statsEl) {
                 statsEl.innerHTML = `
-                    <div class="admin-stat">Users <b>${stats.users}</b></div>
-                    <div class="admin-stat">Rentals <b>${stats.rents}</b></div>
-                    <div class="admin-stat">Pending Dep <b>${stats.pendingDeposits}</b></div>
-                    <div class="admin-stat">Pins <b>${stats.pins}</b></div>
+                    <div class="admin-stat-card"><div class="label">USERS</div><div class="value">${stats.users || 0}</div></div>
+                    <div class="admin-stat-card"><div class="label">TOTAL BALANCE</div><div class="value">${formatMoney(stats.balance || 0)}</div></div>
+                    <div class="admin-stat-card"><div class="label">APPROVED DEPOSITS</div><div class="value">${formatMoney(stats.deposits || 0)}</div></div>
+                    <div class="admin-stat-card"><div class="label">APPROVED RENTS</div><div class="value">${formatMoney(stats.rents || 0)}</div></div>
                 `;
             }
 
             const kw = keyword.toLowerCase();
-            const fUsers = !kw ? users : users.filter(u => (u.username || '').toLowerCase().includes(kw) || String(u.id).includes(kw) || (u.admin_note || '').toLowerCase().includes(kw));
-            const fRents = !kw ? rents : rents.filter(r => (r.username || '').toLowerCase().includes(kw) || String(r.user_id).includes(kw));
-            const fDeps = !kw ? deposits : deposits.filter(d => (d.username || '').toLowerCase().includes(kw) || String(d.user_id).includes(kw));
-            const fPins = !kw ? pins : pins.filter(p => (p.username || '').toLowerCase().includes(kw) || String(p.user_id).includes(kw));
+            const fUsers = !kw ? users : users.filter((u) => (u.username || '').toLowerCase().includes(kw) || String(u.id).includes(kw));
+            const fRents = !kw ? rents : rents.filter((r) => (r.username || '').toLowerCase().includes(kw) || String(r.user_id).includes(kw));
+            const fDeposits = !kw ? deposits : deposits.filter((d) => (d.username || '').toLowerCase().includes(kw) || String(d.user_id).includes(kw));
+            const fPins = !kw ? pins : pins.filter((p) => (p.username || '').toLowerCase().includes(kw) || String(p.user_id).includes(kw));
 
             renderAdminList('admin-users', fUsers, (u) => `
-                <div class="admin-row">
-                    <div>
-                        <div class="admin-title">${u.username} <span class="admin-sub">#${u.id}</span></div>
-                        <div class="admin-sub">Balance: ${Number(u.balance).toLocaleString('vi-VN')}đ • ${u.is_locked ? 'LOCKED' : 'ACTIVE'}</div>
-                        <input class="admin-note" data-id="${u.id}" value="${u.admin_note || ''}" placeholder="Ghi chú admin" />
-                    </div>
-                    <div class="admin-actions">
-                        <button class="btn-sm" data-action="add" data-id="${u.id}">+10k</button>
-                        <button class="btn-sm" data-action="sub" data-id="${u.id}">-10k</button>
-                        <button class="btn-sm" data-action="${u.is_locked ? 'unlock' : 'lock'}" data-id="${u.id}">${u.is_locked ? 'Mở' : 'Khoá'}</button>
-                        <button class="btn-sm danger" data-action="del" data-id="${u.id}">Xoá</button>
+                <div class="admin-item">
+                    <div class="admin-item-head">
+                        <div>
+                            <div class="admin-title-row"><b>${u.username}</b><span class="admin-chip">#${u.id}</span></div>
+                            <div class="admin-meta-line">Balance: ${formatMoney(u.balance)} • ${u.is_locked ? 'LOCKED' : 'ACTIVE'}</div>
+                            <input class="admin-note" data-id="${u.id}" value="${u.admin_note || ''}" placeholder="Ghi chu admin" />
+                        </div>
+                        <div class="admin-actions">
+                            <button class="admin-btn" data-action="add" data-id="${u.id}">+10k</button>
+                            <button class="admin-btn ghost" data-action="sub" data-id="${u.id}">-10k</button>
+                            <button class="admin-btn warn" data-action="${u.is_locked ? 'unlock' : 'lock'}" data-id="${u.id}">${u.is_locked ? 'Mo' : 'Khoa'}</button>
+                            <button class="admin-btn danger" data-action="del-user" data-id="${u.id}">Xoa</button>
+                        </div>
                     </div>
                 </div>
             `);
 
             renderAdminList('admin-rents', fRents, (r) => `
-                <div class="admin-row">
-                    <div>
-                        <div class="admin-title">${r.username || 'User'} • ${r.packageName}</div>
-                        <div class="admin-sub">${Number(r.price).toLocaleString('vi-VN')}đ • ${r.status} • ${new Date(r.created_at).toLocaleString('vi-VN')}</div>
-                    </div>
-                    <div class="admin-actions">
-                        <button class="btn-sm" data-action="approve-rent" data-id="${r.id}">Duyệt</button>
-                        <button class="btn-sm danger" data-action="reject-rent" data-id="${r.id}">Từ chối</button>
+                <div class="admin-item">
+                    <div class="admin-item-head">
+                        <div>
+                            <div class="admin-title-row"><b>${r.username || 'User'}</b><span class="admin-chip">${r.package_name || '-'}</span></div>
+                            <div class="admin-meta-line">${formatMoney(r.price)} • ${r.status} • ${new Date(r.created_at).toLocaleString('vi-VN')}</div>
+                        </div>
+                        <div class="admin-actions">
+                            <button class="admin-btn" data-action="approve-rent" data-id="${r.id}">Duyet</button>
+                            <button class="admin-btn danger" data-action="reject-rent" data-id="${r.id}">Tu choi</button>
+                        </div>
                     </div>
                 </div>
             `);
 
-            renderAdminList('admin-deposits', fDeps, (d) => `
-                <div class="admin-row">
-                    <div>
-                        <div class="admin-title">${d.username || 'User'} • ${Number(d.amount).toLocaleString('vi-VN')}đ</div>
-                        <div class="admin-sub">${d.status} • ${new Date(d.created_at).toLocaleString('vi-VN')}</div>
-                    </div>
-                    <div class="admin-actions">
-                        <button class="btn-sm" data-action="approve-dep" data-id="${d.id}" data-uid="${d.user_id}" data-amount="${d.amount}">Duyệt</button>
-                        <button class="btn-sm danger" data-action="reject-dep" data-id="${d.id}">Từ chối</button>
+            renderAdminList('admin-deposits', fDeposits, (d) => `
+                <div class="admin-item">
+                    <div class="admin-item-head">
+                        <div>
+                            <div class="admin-title-row"><b>${d.username || 'User'}</b><span class="admin-chip">#${d.id}</span></div>
+                            <div class="admin-meta-line">${formatMoney(d.amount)} • ${d.status} • ${new Date(d.created_at).toLocaleString('vi-VN')}</div>
+                        </div>
+                        <div class="admin-actions">
+                            <button class="admin-btn" data-action="approve-dep" data-id="${d.id}">Duyet</button>
+                            <button class="admin-btn danger" data-action="reject-dep" data-id="${d.id}">Tu choi</button>
+                        </div>
                     </div>
                 </div>
             `);
 
             renderAdminList('admin-pins', fPins, (p) => `
-                <div class="admin-row">
-                    <div>
-                        <div class="admin-title">${p.username || 'User'} • PIN: ${p.pin}</div>
-                        <div class="admin-sub">${new Date(p.created_at).toLocaleString('vi-VN')}</div>
-                    </div>
-                    <div class="admin-actions">
-                        <button class="btn-sm danger" data-action="del-pin" data-id="${p.id}">Xoá</button>
+                <div class="admin-item">
+                    <div class="admin-item-head">
+                        <div>
+                            <div class="admin-title-row"><b>${p.username || 'User'}</b><span class="admin-chip">PIN ${p.pin}</span></div>
+                            <div class="admin-meta-line">${new Date(p.created_at).toLocaleString('vi-VN')}</div>
+                        </div>
+                        <div class="admin-actions">
+                            <button class="admin-btn danger" data-action="del-pin" data-id="${p.id}">Xoa</button>
+                        </div>
                     </div>
                 </div>
             `);
-
-        } catch (e) {
-            showToast('Không tải được dữ liệu admin');
+        } catch (_) {
+            showToast('Khong tai duoc du lieu admin');
         }
     }
 
+    async function initAdmin() {
+        let token = getAdminToken();
+        if (!token) {
+            const pwd = prompt('Nhap mat khau admin');
+            if (!pwd) return;
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pwd })
+            });
+            if (!res.ok) {
+                showToast('Sai mat khau admin');
+                return;
+            }
+            const data = await res.json();
+            localStorage.setItem('admin_token', data.token);
+            token = data.token;
+        }
+
+        await loadAdminData();
+
+        const refreshBtn = document.getElementById('admin-refresh');
+        if (refreshBtn) refreshBtn.onclick = () => loadAdminData(document.getElementById('admin-search')?.value?.trim() || '');
+
+        const search = document.getElementById('admin-search');
+        if (search) search.oninput = () => loadAdminData(search.value.trim());
+    }
+
     document.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.btn-sm');
+        const btn = e.target.closest('[data-action]');
         if (!btn) return;
         const action = btn.getAttribute('data-action');
         const id = btn.getAttribute('data-id');
+
         try {
             if (action === 'add' || action === 'sub') {
-                const amount = action === 'add' ? 10000 : -10000;
-                await adminFetch('/api/admin/balance', { method: 'POST', body: JSON.stringify({ userId: id, amount }) });
+                const delta = action === 'add' ? 10000 : -10000;
+                await adminFetch('/api/admin/user/balance', {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: id, delta })
+                });
             } else if (action === 'lock' || action === 'unlock') {
-                await adminFetch(`/api/admin/user/${action}`, { method: 'POST', body: JSON.stringify({ userId: id }) });
-            } else if (action === 'del') {
+                await adminFetch('/api/admin/user/lock', {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: id, locked: action === 'lock' })
+                });
+            } else if (action === 'del-user') {
                 await adminFetch(`/api/admin/user/${id}`, { method: 'DELETE' });
-            } else if (action === 'approve-rent' || action === 'reject-rent') {
-                await adminFetch(`/api/admin/rent/${action === 'approve-rent' ? 'approve' : 'reject'}`, { method: 'POST', body: JSON.stringify({ rentId: id }) });
-            } else if (action === 'approve-dep' || action === 'reject-dep') {
-                const uid = btn.getAttribute('data-uid');
-                const amount = Number(btn.getAttribute('data-amount'));
-                await adminFetch(`/api/admin/deposit/${action === 'approve-dep' ? 'approve' : 'reject'}`, { method: 'POST', body: JSON.stringify({ depositId: id, userId: uid, amount }) });
+            } else if (action === 'approve-rent') {
+                await adminFetch('/api/admin/rent/approve', {
+                    method: 'POST',
+                    body: JSON.stringify({ rentId: id, durationHours: 1 })
+                });
+            } else if (action === 'reject-rent') {
+                await adminFetch('/api/admin/rent/reject', {
+                    method: 'POST',
+                    body: JSON.stringify({ rentId: id })
+                });
+            } else if (action === 'approve-dep') {
+                await adminFetch('/api/admin/deposit/approve', {
+                    method: 'POST',
+                    body: JSON.stringify({ depositId: id })
+                });
+            } else if (action === 'reject-dep') {
+                await adminFetch('/api/admin/deposit/reject', {
+                    method: 'POST',
+                    body: JSON.stringify({ depositId: id })
+                });
             } else if (action === 'del-pin') {
                 await adminFetch(`/api/admin/pins/${id}`, { method: 'DELETE' });
             }
-            loadAdminData();
-        } catch (err) {
-            showToast('Thao tác thất bại');
+
+            await loadAdminData(document.getElementById('admin-search')?.value?.trim() || '');
+            showToast('Da cap nhat');
+        } catch (_) {
+            showToast('Thao tac that bai');
         }
     });
 
     document.addEventListener('change', async (e) => {
         const input = e.target.closest('.admin-note');
         if (!input) return;
-        const id = input.getAttribute('data-id');
+        const userId = input.getAttribute('data-id');
         const note = input.value.trim();
         try {
-            await adminFetch('/api/admin/user/note', { method: 'POST', body: JSON.stringify({ userId: id, note }) });
-            showToast('Đã lưu ghi chú');
-        } catch (err) {
-            showToast('Lưu ghi chú thất bại');
+            await adminFetch('/api/admin/user/note', {
+                method: 'POST',
+                body: JSON.stringify({ userId, note })
+            });
+            showToast('Da luu ghi chu');
+        } catch (_) {
+            showToast('Luu ghi chu that bai');
         }
     });
 
-    // bootstrap
     if (localStorage.getItem('auth_token')) {
         loadMe();
         loadRentHistory();
@@ -446,7 +505,6 @@ function copyCode() {
     const code = document.getElementById('refText')?.innerText;
     if (code && code !== '---') {
         navigator.clipboard.writeText(code);
-        alert('Đã sao chép mã thành công!');
+        alert('Da sao chep ma thanh cong!');
     }
 }
-

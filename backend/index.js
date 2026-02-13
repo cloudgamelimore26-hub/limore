@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { randomUUID } = require('crypto');
@@ -57,7 +57,7 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, time: now() });
 });
 
-app.get('/', (req, res) => {
+app.get(['/', '/Untitled-1.html', '/CLOUD%20GAME.html', '/CLOUD GAME.html'], (req, res) => {
   res.sendFile(path.join(webRoot, 'index.html'));
 });
 
@@ -430,3 +430,4 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
+
