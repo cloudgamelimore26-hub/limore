@@ -35,6 +35,14 @@
         header.addEventListener('click', () => header.parentElement.classList.toggle('active'));
     });
 
+    // Mobile-friendly QR: tap to open larger image for scanning
+    const bankQrImg = document.querySelector('.bank-qr-img');
+    if (bankQrImg) {
+        bankQrImg.addEventListener('click', () => {
+            window.open(bankQrImg.src, '_blank', 'noopener');
+        });
+    }
+
     if (openAuth && authModal) openAuth.onclick = () => (authModal.style.display = 'block');
     if (closeAuth && authModal) closeAuth.onclick = () => (authModal.style.display = 'none');
 
