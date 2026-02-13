@@ -72,6 +72,30 @@
         return `${Number(v || 0).toLocaleString('vi-VN')}d`;
     }
 
+    function toTs(v) {
+        const t = new Date(v || '').getTime();
+        return Number.isFinite(t) ? t : 0;
+    }
+
+    function computeExpiryTs(r) {
+        if (r && r.expires_at) return toTs(r.expires_at);
+        const name = String(r?.package_name || r?.packageName || '').toLowerCase();
+        const createdTs = toTs(r?.created_at) || Date.now();
+        if (name.includes('hour')) return createdTs + 60 * 60 * 1000;
+        if (name.includes('month')) return createdTs + 30 * 24 * 60 * 60 * 1000;
+        return 0;
+    }
+
+    function remainingText(expiryTs) {
+        if (!expiryTs) return '';
+        const remain = expiryTs - Date.now();
+        if (remain <= 0) return 'expired';
+        const min = Math.floor(remain / 60000);
+        const h = Math.floor(min / 60);
+        const m = min % 60;
+        return `con ${h}h ${m}m`;
+    }
+
     function getBalanceValue() {
         const raw = document.getElementById('balance-val')?.innerText || '0';
         const digits = raw.replace(/[^0-9]/g, '');
@@ -185,20 +209,55 @@
 
         const title = r.package_name || r.packageName || 'PLAN';
         const created = r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN');
+        const expiryTs = computeExpiryTs(r);
+        const expired = expiryTs > 0 && Date.now() >= expiryTs;
+        const baseStatus = String(r.status || 'pending');
+        const statusText = expired ? 'expired' : baseStatus;
+        const remain = remainingText(expiryTs);
 
         const item = document.createElement('div');
         item.className = 'rent-item';
+        item.dataset.expiryTs = String(expiryTs || 0);
+        item.dataset.status = baseStatus;
+        item.dataset.created = created;
         item.innerHTML = `
             <div>
                 <div class="rent-info">${title} • ${formatMoney(r.price)}</div>
-                <div class="rent-meta">${r.status || 'pending'} • ${created}</div>
+                <div class="rent-meta">${statusText} • ${created}${remain ? ` • ${remain}` : ''}</div>
             </div>
             <div class="rent-actions">
                 <button class="btn-connect">KET NOI</button>
                 <button class="btn-remove">XOA MAY</button>
             </div>
         `;
+        if (expired) {
+            const connectBtn = item.querySelector('.btn-connect');
+            if (connectBtn) connectBtn.remove();
+        }
         list.prepend(item);
+    }
+
+    function refreshRentExpiryView() {
+        const list = document.getElementById('rentHistory');
+        if (!list) return;
+        const rows = list.querySelectorAll('.rent-item');
+        rows.forEach((row) => {
+            const expiryTs = Number(row.dataset.expiryTs || 0);
+            const meta = row.querySelector('.rent-meta');
+            if (!meta) return;
+            if (!expiryTs) return;
+            const isExpired = Date.now() >= expiryTs;
+            const current = String(row.dataset.status || 'pending');
+            const createdPart = String(row.dataset.created || '');
+            if (isExpired) {
+                meta.textContent = `expired • ${createdPart}`;
+                const connectBtn = row.querySelector('.btn-connect');
+                if (connectBtn) connectBtn.remove();
+            } else {
+                const remain = remainingText(expiryTs);
+                meta.textContent = `${current} • ${createdPart}${remain ? ` • ${remain}` : ''}`;
+            }
+        });
     }
 
     async function loadRentHistory() {
@@ -212,6 +271,7 @@
                 return;
             }
             rents.forEach((r) => appendRentItem(r));
+            refreshRentExpiryView();
         } catch (_) {
             list.innerHTML = '<div class="rent-empty">Chua co luot thue.</div>';
         }
@@ -228,6 +288,9 @@
             }
         });
     }
+
+    // Update remaining time every 30s so 1h package auto expires in UI
+    setInterval(refreshRentExpiryView, 30000);
 
     document.querySelectorAll('.price-card .btn-rent, .price-card .btn-rent-ghost').forEach((btn) => {
         btn.addEventListener('click', async () => {

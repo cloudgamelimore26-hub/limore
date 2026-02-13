@@ -23,6 +23,17 @@ function now() {
   return new Date().toISOString();
 }
 
+function withComputedRentStatus(rows) {
+  const nowTs = Date.now();
+  return (rows || []).map((r) => {
+    const expTs = r && r.expires_at ? new Date(r.expires_at).getTime() : 0;
+    if (r && r.status === 'approved' && expTs && expTs <= nowTs) {
+      return Object.assign({}, r, { status: 'expired' });
+    }
+    return r;
+  });
+}
+
 function auth(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.replace('Bearer ', '').trim();
@@ -125,7 +136,7 @@ app.get('/api/user/rents', auth, (req, res) => {
     [req.userId],
     (err, rows) => {
       if (err) return res.status(500).json({ error: 'db_error' });
-      res.json(rows);
+      res.json(withComputedRentStatus(rows));
     }
   );
 });
@@ -332,7 +343,7 @@ app.get('/api/admin/rents', adminAuth, (req, res) => {
     [],
     (err, rows) => {
       if (err) return res.status(500).json({ error: 'db_error' });
-      res.json(rows);
+      res.json(withComputedRentStatus(rows));
     }
   );
 });
@@ -421,7 +432,7 @@ app.get('/api/user/notifications', auth, (req, res) => {
     , [req.userId],
     (err, rows) => {
       if (err) return res.status(500).json({ error: 'db_error' });
-      res.json(rows);
+      res.json(withComputedRentStatus(rows));
     }
   );
 });
